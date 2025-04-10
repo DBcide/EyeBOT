@@ -24,7 +24,7 @@ async function getUserInfo(userId) {
 
 function getTimestamp() {
     const now = new Date();
-    return now.toLocaleString('fr-FR', { timeZone: 'Europe/Paris' }); // Format français avec fuseau horaire
+    return now.toLocaleString('fr-FR', { timeZone: 'Europe/Paris' });
 }
 
 async function getLogChannel(guildId) {
