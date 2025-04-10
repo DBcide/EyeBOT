@@ -18,13 +18,13 @@
 
 ## 🛠️ Tech Stack
 
-- Langage : **[JavaScript]**
-- Librairie : **[discord.js / pm2]**
+- Langage : **[à compléter : ex. Python / JavaScript / TypeScript]**
+- Librairie : **[ex. discord.py / discord.js / autre]**
 - Plateforme : Discord API
 
 ---
 
-## 🚀 Installation
+## 🚀 Installation (optionnelle)
 
 > 🧪 Si vous avez une autorisation d’accès au projet :
 
@@ -32,3 +32,34 @@
    ```bash
    git clone https://github.com/DBcide/EyeBOT.git
    cd EyeBOT
+   ```
+
+2. Installez les dépendances :
+   ```bash
+   npm install   # ou pip install -r requirements.txt
+   ```
+
+3. Ajoutez votre token Discord dans `.env` ou `config.json`
+
+4. Lancez le bot :
+   ```bash
+   node index.js   # ou python bot.py
+   ```
+
+---
+
+## 🔒 Licence
+
+![Profil GitHub](https://github.com/DBcide.png)
+
+**Auteur : [DBcide](https://github.com/DBcide)**  
+📧 Contact : francais.olivier.r.p@gmail.com
+
+Ce projet est **privé et non librement réutilisable**.
+
+- ❌ Utilisation commerciale ou personnelle interdite sans autorisation.
+- ❌ Modification, redistribution ou adaptation interdite.
+- ✅ Attribution obligatoire à l’auteur.
+- 📤 Toute utilisation implique la publication complète du code source du projet dérivé.
+
+👉 Consultez [`LICENSE.txt`](./LICENSE.txt) pour plus de détails.
