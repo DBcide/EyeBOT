@@ -1,4 +1,4 @@
-# ![Profil GitHub](https://github.com/DBcide.png) 🤖 EyeBOT — Discord Bot
+# <img src="https://github.com/DBcide.png" alt="Profil GitHub" width="40" style="vertical-align:middle;"> 🤖 EyeBOT — Discord Bot
 
 **EyeBOT** est un bot Discord conçu pour automatiser certaines tâches, améliorer l’expérience utilisateur sur un serveur, et proposer des fonctionnalités personnalisées selon vos besoins.
 
