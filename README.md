@@ -50,7 +50,7 @@
 
 ## 🔒 Licence
 
-![Profil GitHub](https://github.com/DBcide.png)
+[Profil GitHub](https://github.com/DBcide.png)
 
 **Auteur : [DBcide](https://github.com/DBcide)**  
 📧 Contact : francais.olivier.r.p@gmail.com
