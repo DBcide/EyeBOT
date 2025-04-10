@@ -1,9 +1,8 @@
 const path = require('node:path');
 const { SlashCommandBuilder, EmbedBuilder, MessageFlags } = require('discord.js');
 const dev_id = "506045516421791744";
-const { pool, promisePool } = require(path.join(__dirname, '../../db'));  // Importer le pool depuis db.js
+const { pool, promisePool } = require(path.join(__dirname, '../../db'));
 
-// Fonction pour formater les nombres en ajoutant des espaces
 function formatNumber(number) {
     return number.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
 }
@@ -27,18 +26,14 @@ async function getBalance(userId) {
 }
 
 async function updateBalance(userId, amount, type) {
-    // Récupérer le solde actuel de l'utilisateur
     const currentBalance = await getBalance(userId);
 
-    // Si currentBalance est NaN ou non valide, on le remet à 0
     if (isNaN(currentBalance)) {
         throw new Error("Failed to retrieve the user's balance.");
     }
 
-    // Calcul du nouveau solde basé sur l'ajout ou le retrait
     let newBalance = type === 'add' ? currentBalance + amount : currentBalance - amount;
 
-    // Insérer ou mettre à jour l'utilisateur dans la base de données
     await promisePool.query(
         "INSERT INTO fee (id_user, silver) VALUES (?, ?) ON DUPLICATE KEY UPDATE silver = ?",
         [userId, newBalance, newBalance]
