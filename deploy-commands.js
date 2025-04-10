@@ -26,18 +26,15 @@ for (const folder of commandFolders) {
     }
 }
 
-// ✅ Envoi des commandes à l'API Discord
 const rest = new REST({ version: '10' }).setToken(token);
 
 (async () => {
     try {
         console.log(`🚀 Déploiement de ${commands.length} commandes sur Discord...`);
 
-        // Déploiement sur un serveur spécifique
         await rest.put(Routes.applicationGuildCommands(clientId, guildId), { body: commands });
         console.log(`✅ Commandes déployées sur le serveur avec l'ID ${guildId}`);
 
-        // Déploiement global sur tous les serveurs où le bot est présent
         await rest.put(Routes.applicationCommands(clientId), { body: commands });
         console.log('✅ Commandes déployées globalement !');
         
