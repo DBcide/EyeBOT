@@ -18,13 +18,13 @@
 
 ## 🛠️ Tech Stack
 
-- Langage : **[à compléter : ex. Python / JavaScript / TypeScript]**
-- Librairie : **[ex. discord.py / discord.js / autre]**
+- Langage : **[JavaScript]**
+- Librairie : **[discord.js / pm2]**
 - Plateforme : Discord API
 
 ---
 
-## 🚀 Installation (optionnelle)
+## 🚀 Installation
 
 > 🧪 Si vous avez une autorisation d’accès au projet :
 
