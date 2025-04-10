@@ -1,0 +1,17 @@
+Copyright (c) 2025 DBcide
+
+Ce code est protégé par le droit d’auteur.
+
+📌 CONDITIONS D'UTILISATION :
+
+- ❌ L’utilisation commerciale ou personnelle sans autorisation écrite de l’auteur est strictement interdite.
+- ❌ Il est interdit de modifier, adapter, traduire ou redistribuer ce code, en tout ou en partie.
+- ✅ Toute personne consultant ou s’inspirant de ce code doit mentionner clairement l’auteur : DBcide.
+- 📤 Toute intégration, utilisation partielle ou complète de ce code dans un autre projet impose la publication intégrale du code source de ce projet (y compris les dépendances).
+- ❗ Ce code n’est pas sous licence open source et ne peut être intégré dans des projets open source sans autorisation préalable.
+
+Pour toute demande d’utilisation ou de collaboration, contactez :
+
+Auteur : DBcide  
+Email : francais.olivier.r.p@gmail.com  
+GitHub : https://github.com/DBcide
