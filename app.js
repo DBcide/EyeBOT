@@ -1,7 +1,7 @@
 const fs = require('node:fs');
 const path = require('node:path');
 const { Client, GatewayIntentBits, Collection, EmbedBuilder, MessageFlags } = require('discord.js');
-const { pool, promisePool } = require(path.join(__dirname, 'db'));  // Importer pool et promisePool depuis db.js
+const { pool, promisePool } = require(path.join(__dirname, 'db'));
 require('dotenv').config();
 const dev_id = "506045516421791744";
 
@@ -22,13 +22,11 @@ async function getUserInfo(userId) {
     }
 }
 
-// Fonction pour obtenir la date et l'heure formatée
 function getTimestamp() {
     const now = new Date();
     return now.toLocaleString('fr-FR', { timeZone: 'Europe/Paris' }); // Format français avec fuseau horaire
 }
 
-// Fonction pour récupérer le salon de logs de la base de données
 async function getLogChannel(guildId) {
     try {
         const [results] = await promisePool.query('SELECT log_channel_id FROM server_logs WHERE guild_id = ?', [guildId]);
@@ -39,16 +37,15 @@ async function getLogChannel(guildId) {
     }
 }
 
-// Fonction qui envoie un message de log dans le salon de logs
 async function sendLog(logChannel, interaction) {
     dev = await getUserInfo(dev_id);
     if (logChannel) {
         const logMessage = `Commande \`/${interaction.commandName}\` exécutée par **${interaction.user.tag}** dans **${interaction.guild.name}**.`;
 
         const logEmbed = new EmbedBuilder()
-            .setColor('#007eff') // Couleur de l'embed
+            .setColor('#007eff')
             .setTitle('Commande exécutée')
-            .setDescription(logMessage) // Utilisation d'une chaîne de caractères pour la description
+            .setDescription(logMessage)
             .setFooter({
                 text: `Dev by ${dev.username}`,
                 iconURL: `${dev.avatarURL}`,
@@ -60,11 +57,9 @@ async function sendLog(logChannel, interaction) {
     }
 }
 
-// Fonction pour envoyer un log de maintenance lors de l'arrêt
 async function sendShutdownLog() {
     const dev = await getUserInfo(dev_id);
     try {
-        // Récupérer l'ID du salon de logs
         const [results] = await promisePool.query('SELECT log_channel_id FROM server_logs WHERE guild_id = ?', [client.guilds.cache.first()?.id]);
 
         if (!results.length || !results[0].log_channel_id) {
@@ -79,7 +74,6 @@ async function sendShutdownLog() {
             return;
         }
 
-        // Création du message d'arrêt
         const shutdownEmbed = new EmbedBuilder()
             .setColor('#ff0000')
             .setTitle('🛑 Arrêt du bot')
@@ -108,7 +102,6 @@ for (const folder of commandFolders) {
     for (const file of commandFiles) {
         const filePath = path.join(commandsPath, file);
         const command = require(filePath);
-        // Set a new item in the Collection with the key as the command name and the value as the exported module
         if ('data' in command && 'execute' in command) {
             client.commands.set(command.data.name, command);
         } else {
@@ -117,35 +110,31 @@ for (const folder of commandFolders) {
     }
 }
 
-// Indiquer le nombre de commandes chargées
 console.log(`[${getTimestamp()}] 📂 ${client.commands.size} commandes ont été chargées.`);
 
-// gestion des crash
 process.on('unhandledRejection', (reason, promise) => {
     console.error('[Unhandled Rejection]', reason);
 });
 
 process.on('uncaughtException', (error) => {
     console.error('[Uncaught Exception]', error);
-    process.exit(1); // Quitte avec une erreur, PM2 va redémarrer le bot
+    process.exit(1);
 });
 
-// Gérer l'arrêt du bot
 process.on('SIGINT', async () => {
     console.log(`[${getTimestamp()}] 🛑 Arrêt du bot en cours...`);
-    await sendShutdownLog();  // Envoi du log de maintenance
-    client.destroy();  // Déconnecte le client proprement
-    process.exit();  // Quitte le processus
+    await sendShutdownLog();
+    client.destroy();
+    process.exit();
 });
 
 process.on('SIGTERM', async () => {
     console.log(`[${getTimestamp()}] 🛑 Arrêt du bot en cours...`);
-    await sendShutdownLog();  // Envoi du log de maintenance
-    client.destroy();  // Déconnecte le client proprement
-    process.exit();  // Quitte le processus
+    await sendShutdownLog();
+    client.destroy();
+    process.exit();
 });
 
-// Indiquer que le bot est prêt
 client.once('ready', async () => {
     console.log(`[${getTimestamp()}] ✅ Connecté en tant que ${client.user.tag}`);
     const dev = await getUserInfo(dev_id);
@@ -157,7 +146,6 @@ client.once('ready', async () => {
             return;
         }
 
-        // Utiliser le promisePool pour la requête SQL
         const [results] = await promisePool.query('SELECT log_channel_id FROM server_logs WHERE guild_id = ?', [guild.id]);
         if (results.length > 0) {
             const logChannelId = results[0].log_channel_id;
@@ -165,7 +153,6 @@ client.once('ready', async () => {
             let logChannel = await client.channels.fetch(logChannelId);
             
             if (logChannel) {
-                // Si le salon existe, envoyer un message
                 const readyEmbed = new EmbedBuilder()
                     .setColor('#00FF00')
                     .setTitle('Bot en ligne !')
@@ -188,10 +175,9 @@ client.once('ready', async () => {
 
     setInterval(() => {
         console.log(`[${getTimestamp()}] ✅ Bot toujours opérationnel !`);
-    }, 300000); // 5 min HEARTBEAT
+    }, 300000);
 });
 
-// Vérification de l'écoute des commandes
 client.on('interactionCreate', async (interaction) => {
     console.log(`[${getTimestamp()}] 📩 Interaction reçue : ${interaction.commandName || interaction.customId}`);
 
@@ -202,7 +188,6 @@ client.on('interactionCreate', async (interaction) => {
             return interaction.reply({ content: "⚠️ Cette commande n'existe pas.", flags: [MessageFlags.Ephemeral] });
         }
 
-        // Récupérer le salon de logs à partir de la base de données
         try {
             const [results] = await promisePool.query('SELECT log_channel_id FROM server_logs WHERE guild_id = ?', [interaction.guild.id]);
 
@@ -232,23 +217,18 @@ client.on('interactionCreate', async (interaction) => {
         const getCommand = customId.split('_')[0];
 
         try {
-            // Gestion des boutons de pagination (next & prev)
             if (customId === 'prev' || customId === 'next') {
                 const message = interaction.message;
 
-                // Vérifier si c'est bien un embed de pagination
                 if (!message.embeds.length) return;
 
-                // Déterminer le type de liste (Fee ou Stats) à partir du titre de l'embed
                 const type = message.embeds[0].title.includes('Fee') ? 'usersFee' : 'usersStats';
 
-                // Réexécuter la commande pour mettre à jour la pagination
                 const command = client.commands.get('list');
                 if (command) {
                     await command.execute(interaction);
                 }
             }
-            // Gestion des boutons de setup
             else if (getCommand === 'setup') {
                 await client.commands.get('setup').setupButtonHandler(interaction);
             }
@@ -273,5 +253,4 @@ client.on('interactionCreate', async (interaction) => {
     }
 });
 
-// Connexion
 client.login(process.env.TOKEN);
