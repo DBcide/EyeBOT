@@ -1,15 +1,15 @@
 # <img src="https://github.com/DBcide.png" alt="Profil GitHub" width="40" style="vertical-align:middle;"> 🤖 EyeBOT — Discord Bot
 
-**EyeBOT** est un bot Discord conçu pour automatiser certaines tâches, améliorer l’expérience utilisateur sur un serveur, et proposer des fonctionnalités personnalisées selon vos besoins.
+**EyeBOT** est un bot Discord conçu pour automatiser certaines tâches, améliorer l’expérience utilisateur sur un serveur, et proposer des fonctionnalités personnalisées selon vos besoins pour le jeu <img src="https://assets.albiononline.com/assets/images/icons/apple-touch-icon-57x57.png?cb=2.162.2" alt="Logo Albion" width="25" style="vertical-align:middle;"> Albion Online
 
 ---
 
 ## ✨ Fonctionnalités principales
 
 - 🔍 Commandes personnalisées
-- 🎛️ Réponses automatisées ou interactions
+- 🎛️ Tracking d'activités des utilisateurs
 - ⚙️ Gestion d’événements Discord
-- 🚫 Modération ou contrôle (optionnel)
+- 🚫 Modération ou contrôle
 - 📡 Extensible avec des modules à venir
 
 > ⚠️ Le projet est en développement / privé — non destiné à une utilisation publique libre.
@@ -18,13 +18,13 @@
 
 ## 🛠️ Tech Stack
 
-- Langage : **[à compléter : ex. Python / JavaScript / TypeScript]**
-- Librairie : **[ex. discord.py / discord.js / autre]**
+- Langage : **[JavaScript]**
+- Librairie : **[discord.js / pm2]**
 - Plateforme : Discord API
 
 ---
 
-## 🚀 Installation (optionnelle)
+## 🚀 Installation
 
 > 🧪 Si vous avez une autorisation d’accès au projet :
 
@@ -36,14 +36,14 @@
 
 2. Installez les dépendances :
    ```bash
-   npm install   # ou pip install -r requirements.txt
+   npm install discord.js / pm2
    ```
 
-3. Ajoutez votre token Discord dans `.env` ou `config.json`
+3. Ajoutez votre token Discord dans `.env`
 
 4. Lancez le bot :
    ```bash
-   node index.js   # ou python bot.py
+   pm2 start ecosystem.config.js
    ```
 
 ---
