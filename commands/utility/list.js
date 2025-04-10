@@ -1,7 +1,7 @@
 const path = require('node:path');
 const { SlashCommandBuilder, EmbedBuilder, MessageFlags, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
 const dev_id = "506045516421791744";
-const { pool, promisePool } = require(path.join(__dirname, '../../db'));  // Importer le pool depuis db.js
+const { pool, promisePool } = require(path.join(__dirname, '../../db'));
 
 async function getUserInfo(client, userId) {
     try {
@@ -54,7 +54,6 @@ module.exports = {
                 return interaction.reply({ content: "No user find.", flags: [MessageFlags.Ephemeral] });
             }
 
-            // Récupérer les infos du développeur
             const dev = await getUserInfo(client, dev_id);
             const footerText = dev ? `Dev by ${dev.username}` : `Dev information unavailable`;
             const footerIcon = dev ? dev.avatarURL : null;
@@ -102,7 +101,7 @@ module.exports = {
                     
                     new ButtonBuilder()
                         .setCustomId('spacer1')
-                        .setLabel('‎') // Invisible character
+                        .setLabel('‎')
                         .setStyle(ButtonStyle.Secondary)
                         .setDisabled(true),
 
@@ -114,7 +113,7 @@ module.exports = {
 
                     new ButtonBuilder()
                         .setCustomId('spacer2')
-                        .setLabel('‎') // Invisible character
+                        .setLabel('‎')
                         .setStyle(ButtonStyle.Secondary)
                         .setDisabled(true),
 
