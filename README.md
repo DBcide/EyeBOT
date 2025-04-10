@@ -1,4 +1,4 @@
-# <img src="https://github.com/DBcide.png" alt="Profil GitHub" width="40" style="vertical-align:middle;"> 🤖 EyeBOT — Discord Bot
+# <img src="[https://github.com/DBcide.png](https://cdn.discordapp.com/avatars/1347319983256113223/ccf976b2b1943655b9360e021bd76eb1.webp?size=240)" alt="Profil EyeBOT" width="40" style="vertical-align:middle;"> 🤖 EyeBOT — Discord Bot
 
 **EyeBOT** est un bot Discord conçu pour automatiser certaines tâches, améliorer l’expérience utilisateur sur un serveur, et proposer des fonctionnalités personnalisées selon vos besoins pour le jeu Albion Online.
 
