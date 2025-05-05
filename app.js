@@ -3,14 +3,22 @@ const path = require('node:path');
 const { Client, GatewayIntentBits, Collection, EmbedBuilder, MessageFlags } = require('discord.js');
 const { pool, promisePool } = require(path.join(__dirname, 'db'));
 require('dotenv').config();
-const dev_id = "506045516421791744";
 
 const client = new Client({
     intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMessages, GatewayIntentBits.MessageContent]
 });
 
-async function getUserInfo(userId) {
+async function getUserInfo(client, userId) {
     try {
+        // Utilisation de devUser si c'est l'utilisateur de développement
+        if (userId === dev_id && client.devUser) {
+            return {
+                username: devUser.username,
+                avatarURL: devUser.displayAvatarURL({ dynamic: true, size: 512 })
+            };
+        }
+        
+        // Si l'utilisateur n'est pas dev, on le récupère via l'API
         const user = await client.users.fetch(userId);
         return {
             username: user.username,
@@ -38,13 +46,17 @@ async function getLogChannel(guildId) {
 }
 
 async function sendLog(logChannel, interaction) {
-    dev = await getUserInfo(dev_id);
+    dev = await getUserInfo(client, dev_id);
     if (logChannel) {
-        const logMessage = `Commande \`/${interaction.commandName}\` exécutée par **${interaction.user.tag}** dans **${interaction.guild.name}**.`;
+        const logMessage = `Command \`/${interaction.commandName}\` executed by **${interaction.user.tag}** in **${interaction.guild.name}**.`;
 
         const logEmbed = new EmbedBuilder()
             .setColor('#007eff')
-            .setTitle('Commande exécutée')
+            .setAuthor({
+                name: interaction.member.nickname ?? interaction.user.username,
+                iconURL: interaction.member.avatarURL?.() ?? interaction.user.displayAvatarURL(),
+            })
+            .setTitle('Command executed')
             .setDescription(logMessage)
             .setFooter({
                 text: `Dev by ${dev.username}`,
@@ -58,36 +70,82 @@ async function sendLog(logChannel, interaction) {
 }
 
 async function sendShutdownLog() {
-    const dev = await getUserInfo(dev_id);
+    const dev = await getUserInfo(client, dev_id);
     try {
-        const [results] = await promisePool.query('SELECT log_channel_id FROM server_logs WHERE guild_id = ?', [client.guilds.cache.first()?.id]);
+        const [results] = await promisePool.query('SELECT log_channel_id FROM server_logs WHERE log_channel_id IS NOT NULL');
 
-        if (!results.length || !results[0].log_channel_id) {
+
+        if (!results.length) {
             console.warn("⚠️ Aucun salon de logs trouvé pour l'arrêt du bot.");
-            return;
-        }
-
-        const logChannel = await client.channels.fetch(results[0].log_channel_id).catch(() => null);
-
-        if (!logChannel) {
-            console.warn("⚠️ Le salon de logs n'existe plus.");
             return;
         }
 
         const shutdownEmbed = new EmbedBuilder()
             .setColor('#ff0000')
-            .setTitle('🛑 Arrêt du bot')
-            .setDescription(`Le bot **${client.user.tag}** s'arrête.`)
+            .setTitle('🛑 Bot shutdown')
+            .setDescription(`The **${client.user.tag}** bot shuts down.`)
             .setFooter({
                 text: `Dev by ${dev.username}`,
                 iconURL: `${dev.avatarURL}`,
               })
             .setTimestamp();
 
-        await logChannel.send({ embeds: [shutdownEmbed] });
-        console.log(`[${getTimestamp()}] ✅ Message de shutdown envoyé !`);
+            for (const row of results) {
+                try {
+                    const logChannel = await client.channels.fetch(row.log_channel_id).catch(() => null);
+                    if (logChannel) {
+                        await logChannel.send({ embeds: [shutdownEmbed] });
+                        console.log(`[${getTimestamp()}] ✅ Shutdown log envoyé dans le salon ${logChannel.guild.name}`);
+                    } else {
+                        console.warn(`⚠️ Salon introuvable (ID: ${row.log_channel_id})`);
+                    }
+                } catch (err) {
+                    console.error(`❌ Erreur lors de l'envoi dans le salon ${row.log_channel_id} :`, err);
+                }
+            }
+
     } catch (error) {
-        console.error("❌ Erreur lors de l'envoi du message de shutdown :", error);
+        console.error("❌ Erreur lors de la recherche en base de donnée :", error);
+    }
+}
+
+async function sendStartupLog() {
+    const dev = await getUserInfo(client, dev_id);
+
+    try {
+        const [results] = await promisePool.query('SELECT log_channel_id FROM server_logs WHERE log_channel_id IS NOT NULL');
+
+        if (!results.length) {
+            console.warn(`[${getTimestamp()}] ⚠️ Aucun salon de logs configuré.`);
+            return;
+        }
+
+        const readyEmbed = new EmbedBuilder()
+            .setColor('#00FF00')
+            .setTitle('⚙️ Bot online !')
+            .setDescription(`The **${client.user.tag}** bot is now operational.`)
+            .setFooter({
+                text: `Dev by ${dev.username}`,
+                iconURL: `${dev.avatarURL}`,
+            })
+            .setTimestamp();
+
+        for (const row of results) {
+            try {
+                const logChannel = await client.channels.fetch(row.log_channel_id).catch(() => null);
+                if (logChannel) {
+                    await logChannel.send({ embeds: [readyEmbed] });
+                    console.log(`[${getTimestamp()}] ✅ Message de démarrage envoyé dans ${logChannel.guild.name}`);
+                } else {
+                    console.warn(`[${getTimestamp()}] ⚠️ Salon introuvable (ID: ${row.log_channel_id})`);
+                }
+            } catch (err) {
+                console.error(`[${getTimestamp()}] ❌ Erreur lors de l'envoi dans le salon ${row.log_channel_id} :`, err);
+            }
+        }
+
+    } catch (err) {
+        console.error(`[${getTimestamp()}] ❌ Erreur lors de la récupération des salons de logs :`, err);
     }
 }
 
@@ -135,51 +193,95 @@ process.on('SIGTERM', async () => {
     process.exit();
 });
 
+// ───────────────────────────────────────────────────────────────
+// Démarrage du BOT
+// ───────────────────────────────────────────────────────────────
+
+const { dev_id } = require(path.join(__dirname, 'config'));
+client.dev_id = dev_id;
+
 client.once('ready', async () => {
     console.log(`[${getTimestamp()}] ✅ Connecté en tant que ${client.user.tag}`);
-    const dev = await getUserInfo(dev_id);
 
     try {
-        const guild = client.guilds.cache.first();
-        if (!guild) {
-            console.warn(`[${getTimestamp()}] ⚠️ Aucun serveur trouvé.`);
-            return;
-        }
-
-        const [results] = await promisePool.query('SELECT log_channel_id FROM server_logs WHERE guild_id = ?', [guild.id]);
-        if (results.length > 0) {
-            const logChannelId = results[0].log_channel_id;
-
-            let logChannel = await client.channels.fetch(logChannelId);
-            
-            if (logChannel) {
-                const readyEmbed = new EmbedBuilder()
-                    .setColor('#00FF00')
-                    .setTitle('Bot en ligne !')
-                    .setDescription(`Le bot **${client.user.tag}** est désormais opérationnel.`)
-                    .setFooter({
-                        text: `Dev by ${dev.username}`,
-                        iconURL: `${dev.avatarURL}`,
-                      })
-                    .setTimestamp();
-                logChannel.send({ embeds: [readyEmbed] });
-            } else {
-                console.warn(`[${getTimestamp()}] ⚠️ Le salon de logs configuré n'existe plus.`);
-            }
-        } else {
-            console.warn(`[${getTimestamp()}] ⚠️ Aucun salon de logs configuré.`);
-        }
-    } catch (err) {
-        console.error(`[${getTimestamp()}] ❌ Erreur lors de la récupération du salon de logs:`, err);
+        devUser = await client.users.fetch(dev_id);
+        client.devUser = await client.users.fetch(dev_id);
+        console.log(`[${getTimestamp()}] ✅ Utilisateur de développement chargé : ${devUser.tag}`);
+    } catch (error) {
+        console.error("❌ Erreur lors du chargement de l'utilisateur de développement :", error);
     }
 
+    await sendStartupLog();
+
     setInterval(() => {
-        console.log(`[${getTimestamp()}] ✅ Bot toujours opérationnel !`);
+        const usage = process.memoryUsage();
+        console.log(`[HEARTBEAT] [${getTimestamp()}] RAM: ${(usage.rss / 1024 / 1024).toFixed(2)} MB | Uptime: ${(process.uptime() / 60).toFixed(1)} min`);
     }, 300000);
 });
 
+// ───────────────────────────────────────────────────────────────
+// Fin démarrage du BOT
+// ───────────────────────────────────────────────────────────────
+
+// ───────────────────────────────────────────────────────────────
+// Ecoutes
+// ───────────────────────────────────────────────────────────────
+
 client.on('interactionCreate', async (interaction) => {
-    console.log(`[${getTimestamp()}] 📩 Interaction reçue : ${interaction.commandName || interaction.customId}`);
+    if (!interaction.isAutocomplete()) {
+        const guildName = interaction.guild?.name ?? "DM";
+        console.log(`[${getTimestamp()}] 📩 [${guildName}] Interaction : ${interaction.commandName || interaction.customId}`);
+    }
+
+    // ───────────────────────────────────────────────────────────────
+    // Gestion de l’autocomplete
+    // ───────────────────────────────────────────────────────────────
+
+    if (interaction.isAutocomplete()) {
+        const focusedOption = interaction.options.getFocused(); // ce que l'utilisateur tape
+        try {
+            // On suppose que la commande s'appelle 'show' et que l'option autocomplete s'appelle 'name'
+            if (interaction.commandName === 'show') {
+
+                if (!focusedOption || focusedOption.length < 1) {
+                    return interaction.respond([]);
+                  }
+                // Requête : on cherche dans la table items (ou spells selon ton cas)
+                const [rows] = await promisePool.query(
+                    `SELECT name
+                     FROM items
+                     WHERE name LIKE ?
+                     ORDER BY
+                       CASE
+                         WHEN name LIKE ? THEN 0
+                         ELSE 1
+                       END,
+                       name
+                     LIMIT 25`,
+                    [
+                      `%${focusedOption}%`,        // pour filtrer tous ceux qui contiennent
+                      `${focusedOption}%`          // pour prioriser ceux qui commencent
+                    ]
+                  );
+
+                // On renvoie les suggestions à Discord
+                await interaction.respond(
+                    rows.map(r => ({ name: r.name, value: r.name }))
+                );
+            }
+        } catch (err) {
+            console.error(`[${getTimestamp()}] ❌ Erreur autocomplete:`, err);
+        }
+        return; // On arrête là pour l'autocomplete
+    }
+
+    // ───────────────────────────────────────────────────────────────
+    // Fin de l'autocomplete
+    // ───────────────────────────────────────────────────────────────
+
+    // ───────────────────────────────────────────────────────────────
+    // Début de l'écoute des commandes
+    // ───────────────────────────────────────────────────────────────
 
     if (interaction.isChatInputCommand()) {
         const command = client.commands.get(interaction.commandName);
@@ -211,9 +313,48 @@ client.on('interactionCreate', async (interaction) => {
             await interaction.reply({ content: "⚠️ Une erreur est survenue.", flags: [MessageFlags.Ephemeral] });
         }
     } 
+
+    // ───────────────────────────────────────────────────────────────
+    // Fin de l'écoute des commandes
+    // ───────────────────────────────────────────────────────────────
+
+    // ───────────────────────────────────────────────────────────────
+    // Début de l'écoute des boutons
+    // ───────────────────────────────────────────────────────────────
     
     else if (interaction.isButton()) {
         const customId = interaction.customId;
+
+        if (customId.startsWith('spell_info:')) {
+            const spellName = customId.split(':')[1];
+    
+            // Simule l'exécution de /show spell avec name = spellName
+            const command = client.commands.get('show');
+            if (command) {
+                // Mock manuellement les options
+                const fakeInteraction = {
+                    ...interaction,
+                    client,
+                    options: {
+                        getString: (name) => (name === 'type' ? 'spell' : name === 'name' ? spellName : null),
+                        getInteger: () => null,
+                    },
+                    commandName: 'show',
+                    reply: (...args) => interaction.update(...args),
+                    deferReply: (...args) => interaction.deferUpdate(...args),
+                    editReply: (...args) => interaction.editReply(...args),
+                };
+    
+                try {
+                    await command.execute(fakeInteraction);
+                } catch (err) {
+                    console.error(`[${getTimestamp()}] ❌ Erreur lors de l'affichage du sort ${spellName}:`, err);
+                    await interaction.reply({ content: "❌ Impossible to show the spell informations.", flags: [MessageFlags.Ephemeral] });
+                }
+            }
+            return;
+        }
+
         const getCommand = customId.split('_')[0];
 
         try {
@@ -236,7 +377,15 @@ client.on('interactionCreate', async (interaction) => {
             console.error(`[${getTimestamp()}] ❌ Erreur lors du traitement du bouton ${interaction.customId}:`, error);
             await interaction.reply({ content: "⚠️ Une erreur est survenue.", flags: [MessageFlags.Ephemeral] });
         }
-    } 
+    }
+
+    // ───────────────────────────────────────────────────────────────
+    // Fin de l'écoute des boutons
+    // ───────────────────────────────────────────────────────────────
+
+    // ───────────────────────────────────────────────────────────────
+    // Début de l'écoute des menus déroulants
+    // ───────────────────────────────────────────────────────────────
     
     else if (interaction.isStringSelectMenu()) {
         const customId = interaction.customId;
@@ -251,6 +400,15 @@ client.on('interactionCreate', async (interaction) => {
             await interaction.reply({ content: "⚠️ Une erreur est survenue.", flags: [MessageFlags.Ephemeral] });
         }
     }
+
+    // ───────────────────────────────────────────────────────────────
+    // Fin de l'écoute des menus déroulants
+    // ───────────────────────────────────────────────────────────────
+
 });
+
+// ───────────────────────────────────────────────────────────────
+// Fin des écoutes
+// ───────────────────────────────────────────────────────────────
 
 client.login(process.env.TOKEN);

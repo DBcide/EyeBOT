@@ -1,10 +1,19 @@
 const path = require('node:path');
 const { SlashCommandBuilder, EmbedBuilder, MessageFlags, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
-const dev_id = "506045516421791744";
-const { pool, promisePool } = require(path.join(__dirname, '../../db'));
+const { dev_id } = require(path.join(__dirname,'../../config'));
+const { pool, promisePool } = require(path.join(__dirname, '../../db'));  // Importer le pool depuis db.js
 
 async function getUserInfo(client, userId) {
     try {
+        // Utilisation de devUser si c'est l'utilisateur de développement
+        if (userId === dev_id && client.devUser) {
+            return {
+                username: devUser.username,
+                avatarURL: devUser.displayAvatarURL({ dynamic: true, size: 512 })
+            };
+        }
+        
+        // Si l'utilisateur n'est pas dev, on le récupère via l'API
         const user = await client.users.fetch(userId);
         return {
             username: user.username,
@@ -15,6 +24,7 @@ async function getUserInfo(client, userId) {
         return null;
     }
 }
+
 
 function formatNumber(number) {
     return number.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
@@ -54,6 +64,7 @@ module.exports = {
                 return interaction.reply({ content: "No user find.", flags: [MessageFlags.Ephemeral] });
             }
 
+            // Récupérer les infos du développeur
             const dev = await getUserInfo(client, dev_id);
             const footerText = dev ? `Dev by ${dev.username}` : `Dev information unavailable`;
             const footerIcon = dev ? dev.avatarURL : null;
@@ -101,7 +112,7 @@ module.exports = {
                     
                     new ButtonBuilder()
                         .setCustomId('spacer1')
-                        .setLabel('‎')
+                        .setLabel('‎') // Invisible character
                         .setStyle(ButtonStyle.Secondary)
                         .setDisabled(true),
 
@@ -113,7 +124,7 @@ module.exports = {
 
                     new ButtonBuilder()
                         .setCustomId('spacer2')
-                        .setLabel('‎')
+                        .setLabel('‎') // Invisible character
                         .setStyle(ButtonStyle.Secondary)
                         .setDisabled(true),
 
