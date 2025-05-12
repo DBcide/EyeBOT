@@ -1,18 +1,8 @@
-const path = require('node:path');
 const { SlashCommandBuilder, EmbedBuilder, MessageFlags } = require('discord.js');
 const { dev_id } = require(path.join(__dirname,'../../config'));
 
 async function getUserInfo(client, userId) {
     try {
-        // Utilisation de devUser si c'est l'utilisateur de développement
-        if (userId === dev_id && client.devUser) {
-            return {
-                username: devUser.username,
-                avatarURL: devUser.displayAvatarURL({ dynamic: true, size: 512 })
-            };
-        }
-        
-        // Si l'utilisateur n'est pas dev, on le récupère via l'API
         const user = await client.users.fetch(userId);
         return {
             username: user.username,
@@ -24,7 +14,6 @@ async function getUserInfo(client, userId) {
     }
 }
 
-
 module.exports = {
     data: new SlashCommandBuilder()
         .setName('ping')
@@ -32,27 +21,20 @@ module.exports = {
     async execute(interaction) {
         const { client, user } = interaction;
 
-        // Début de la mesure de latence
         const start = Date.now();
 
-        // Déférer la réponse (évite "InteractionAlreadyReplied")
         await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
 
-        // Calculer la latence du bot
         const latency = Date.now() - start;
 
-        // Récupérer la latence WebSocket de Discord
         let apiLatency = Math.round(client.ws.ping);
-        if (apiLatency === -1) apiLatency = "Unavailable"; else apiLatency = `${apiLatency}ms`; // Empêche d'afficher -1ms
+        if (apiLatency === -1) apiLatency = "Unavailable"; else apiLatency = `${apiLatency}ms`;
 
-        // Récupérer les infos du développeur
         const dev = await getUserInfo(client, dev_id);
 
-        // Vérifier si `dev` a bien été récupéré
         const footerText = dev ? `Dev by ${dev.username}` : `Dev information unavailable`;
         const footerIcon = dev ? dev.avatarURL : null;
 
-        // Création de l'embed avec la vraie latence
         const embed = new EmbedBuilder()
             .setColor('#00FF00')
             .setAuthor({ name: user.username, iconURL: user.displayAvatarURL({ dynamic: true, size: 512 }) })
@@ -61,7 +43,6 @@ module.exports = {
             .setFooter({ text: footerText, iconURL: footerIcon })
             .setTimestamp();
 
-        // Modifier la réponse initiale avec l'embed
         await interaction.editReply({ embeds: [embed] });
     },
 };

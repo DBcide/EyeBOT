@@ -1,20 +1,11 @@
 const path = require('node:path');
 const { SlashCommandBuilder, PermissionFlagsBits, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, ChannelType, ModalBuilder, TextInputBuilder, TextInputStyle, StringSelectMenuBuilder, MessageFlags } = require('discord.js');
-const { pool, promisePool } = require(path.join(__dirname, '../../db'));  // Importer le pool depuis db.js
+const { pool, promisePool } = require(path.join(__dirname, '../../db'));
 const { dev_id } = require(path.join(__dirname,'../../config'));
 
-async function getUserInfo(client, userId) {
+async function getUserInfo(userId, interaction) {
     try {
-        // Utilisation de devUser si c'est l'utilisateur de développement
-        if (userId === dev_id && client.devUser) {
-            return {
-                username: devUser.username,
-                avatarURL: devUser.displayAvatarURL({ dynamic: true, size: 512 })
-            };
-        }
-        
-        // Si l'utilisateur n'est pas dev, on le récupère via l'API
-        const user = await client.users.fetch(userId);
+        const user = await interaction.client.users.fetch(userId);
         return {
             username: user.username,
             avatarURL: user.displayAvatarURL({ dynamic: true, size: 512 })
@@ -24,7 +15,6 @@ async function getUserInfo(client, userId) {
         return null;
     }
 }
-
 
 module.exports = {
     data: new SlashCommandBuilder()
@@ -50,7 +40,6 @@ module.exports = {
           })
         .setTimestamp(); 
                 
-        // Création des boutons
         const row = new ActionRowBuilder()
             .addComponents(
                 new ButtonBuilder()
@@ -66,11 +55,9 @@ module.exports = {
         await interaction.reply({ embeds: [setupEmbed], components: [row] });
     },
 
-    //Button Handler
     async setupButtonHandler(interaction) {
         const customId = interaction.customId;
         
-        // getCommand[0] = nom de la commande !
         const getCommand = customId.split('_')[0];
         const getActualEvent = customId.split('_').pop();
 
@@ -99,11 +86,9 @@ module.exports = {
         }
     },
 
-    //String Menu Handler
     async setupStringMenuHandler(interaction) {
         const customId = interaction.customId;
         
-        // getCommand[0] = nom de la commande !
         const getCommand = customId.split('_')[0];
         const getActualEvent = customId.split('_').pop();
 
@@ -118,14 +103,12 @@ module.exports = {
                         const [results] = await promisePool.query("SELECT log_channel_id FROM server_logs WHERE guild_id = ?", [guildId]);
 
                         if (results.length > 0) {
-                            // Un salon est déjà enregistré, vérifier s'il est différent
                             if (results[0].log_channel_id === channelId) {
                                 await interaction.reply({ content: "❌ This channel is already the logs channel !", flags: [MessageFlags.Ephemeral] });
                                 interaction.message.delete()
                                 return;
                             }
                 
-                            // Mettre à jour l'ancien salon avec le nouveau
                             await promisePool.query("UPDATE server_logs SET log_channel_id = ? WHERE guild_id = ?", [channelId, guildId]);
                             await interaction.reply({ content: `🔄 Channel change for ${channelIdName.name} !`, flags: [MessageFlags.Ephemeral] });
                             interaction.message.delete()
@@ -152,7 +135,6 @@ module.exports = {
                     const [results] = await promisePool.query("SELECT channel_id FROM sessionsChannel WHERE guild_id = ?", [guildId]);
 
                     if (results.length > 0) {
-                        // Un salon est déjà enregistré, vérifier s'il est différent
                         if (results[0].channel_id === channelId) {
                             await interaction.reply({ content: "❌ This channel is already a sessions channel, please select an other one or delete this one !", flags: [MessageFlags.Ephemeral] });
                             interaction.message.delete()
@@ -178,7 +160,6 @@ module.exports = {
     }
 };
 
-// Configuration Admin
 async function configureAdmin(interaction, page = 0) {
     const user = interaction.user;
     const dev = await getUserInfo(dev_id, interaction);
@@ -197,7 +178,6 @@ async function configureAdmin(interaction, page = 0) {
           })
         .setTimestamp();
 
-    // Récupérer les salons textuels du serveur
     const channels = interaction.guild.channels.cache
         .filter(channel => channel.type === ChannelType.GuildText)
         .map(channel => ({
@@ -205,10 +185,10 @@ async function configureAdmin(interaction, page = 0) {
             value: channel.id
         }));
 
-    const maxMenusPerPage = 3; // Discord limite à 5 menus max
-    const itemsPerMenu = 25; // Un menu peut contenir 25 salons
-    const itemsPerPage = maxMenusPerPage * itemsPerMenu; // 125 salons par page
-    const totalPages = Math.ceil(channels.length / itemsPerPage); // Nombre total de pages
+    const maxMenusPerPage = 3;
+    const itemsPerMenu = 25;
+    const itemsPerPage = maxMenusPerPage * itemsPerMenu;
+    const totalPages = Math.ceil(channels.length / itemsPerPage);
 
     const startIndex = page * itemsPerPage;
     const paginatedChannels = channels.slice(startIndex, startIndex + itemsPerPage);
@@ -224,7 +204,6 @@ async function configureAdmin(interaction, page = 0) {
         rows.push(new ActionRowBuilder().addComponents(menu));
     }
 
-    // Ajouter les boutons de navigation si plusieurs pages
     if (totalPages > 1) {
         const buttonRow = new ActionRowBuilder();
         
@@ -252,9 +231,6 @@ async function configureAdmin(interaction, page = 0) {
     await interaction.update({ embeds: [adminEmbed], components: rows });
 }
 
-
-
-// Configuration des Sessions
 async function configureSessions(interaction, page=0) {
 
     const user = interaction.user;
@@ -274,7 +250,6 @@ async function configureSessions(interaction, page=0) {
           })
         .setTimestamp();
 
-    // Récupérer les salons textuels du serveur
     const channels = interaction.guild.channels.cache
         .filter(channel => channel.type === ChannelType.GuildText)
         .map(channel => ({
@@ -282,10 +257,10 @@ async function configureSessions(interaction, page=0) {
             value: channel.id
         }));
 
-    const maxMenusPerPage = 3; // Discord limite à 5 menus max
-    const itemsPerMenu = 25; // Un menu peut contenir 25 salons
-    const itemsPerPage = maxMenusPerPage * itemsPerMenu; // 125 salons par page
-    const totalPages = Math.ceil(channels.length / itemsPerPage); // Nombre total de pages
+    const maxMenusPerPage = 3;
+    const itemsPerMenu = 25;
+    const itemsPerPage = maxMenusPerPage * itemsPerMenu;
+    const totalPages = Math.ceil(channels.length / itemsPerPage);
 
     const startIndex = page * itemsPerPage;
     const paginatedChannels = channels.slice(startIndex, startIndex + itemsPerPage);
@@ -301,7 +276,6 @@ async function configureSessions(interaction, page=0) {
         rows.push(new ActionRowBuilder().addComponents(menu));
     }
 
-    // Ajouter les boutons de navigation si plusieurs pages
     if (totalPages > 1) {
         const buttonRow = new ActionRowBuilder();
         

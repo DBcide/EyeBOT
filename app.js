@@ -4,6 +4,23 @@ const { Client, GatewayIntentBits, Collection, EmbedBuilder, MessageFlags } = re
 const { pool, promisePool } = require(path.join(__dirname, 'db'));
 require('dotenv').config();
 
+// ───────────────────────────────────────────────────────────────
+// Heartbeat pour o2switch (et le monitoring)
+// ───────────────────────────────────────────────────────────────
+
+const express = require('express');
+
+const app = express();
+
+app.get('/', (req, res) => {
+    res.status(200).send('Bot is alive');
+    res.send('🤖 Le bot Discord fonctionne !');
+});
+
+// ───────────────────────────────────────────────────────────────
+// Fin monitoring
+// ───────────────────────────────────────────────────────────────
+
 const client = new Client({
     intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMessages, GatewayIntentBits.MessageContent]
 });
@@ -25,7 +42,7 @@ async function getUserInfo(client, userId) {
             avatarURL: user.displayAvatarURL({ dynamic: true, size: 512 })
         };
     } catch (error) {
-        console.error(`❌ Erreur lors de la récupération de l'utilisateur ${userId} :`, error);
+        console.error(`[${getTimestamp()}] ❌ Erreur lors de la récupération de l'utilisateur ${userId} :`, error);
         return null;
     }
 }
@@ -100,12 +117,12 @@ async function sendShutdownLog() {
                         console.warn(`⚠️ Salon introuvable (ID: ${row.log_channel_id})`);
                     }
                 } catch (err) {
-                    console.error(`❌ Erreur lors de l'envoi dans le salon ${row.log_channel_id} :`, err);
+                    console.error(`[${getTimestamp()}] ❌ Erreur lors de l'envoi dans le salon ${row.log_channel_id} :`, err);
                 }
             }
 
     } catch (error) {
-        console.error("❌ Erreur lors de la recherche en base de donnée :", error);
+        console.error(`[${getTimestamp()}] ❌ Erreur lors de la recherche en base de donnée :`, error);
     }
 }
 
@@ -171,11 +188,11 @@ for (const folder of commandFolders) {
 console.log(`[${getTimestamp()}] 📂 ${client.commands.size} commandes ont été chargées.`);
 
 process.on('unhandledRejection', (reason, promise) => {
-    console.error('[Unhandled Rejection]', reason);
+    console.error(`[${getTimestamp()}] [Unhandled Rejection]`, reason);
 });
 
 process.on('uncaughtException', (error) => {
-    console.error('[Uncaught Exception]', error);
+    console.error(`[${getTimestamp()}] [Uncaught Exception]`, error);
     process.exit(1);
 });
 
@@ -208,14 +225,22 @@ client.once('ready', async () => {
         client.devUser = await client.users.fetch(dev_id);
         console.log(`[${getTimestamp()}] ✅ Utilisateur de développement chargé : ${devUser.tag}`);
     } catch (error) {
-        console.error("❌ Erreur lors du chargement de l'utilisateur de développement :", error);
+        console.error(`[${getTimestamp()}] ❌ Erreur lors du chargement de l'utilisateur de développement :`, error);
     }
 
     await sendStartupLog();
 
     setInterval(() => {
         const usage = process.memoryUsage();
-        console.log(`[HEARTBEAT] [${getTimestamp()}] RAM: ${(usage.rss / 1024 / 1024).toFixed(2)} MB | Uptime: ${(process.uptime() / 60).toFixed(1)} min`);
+        const uptimeSeconds = process.uptime();
+    
+        const days = Math.floor(uptimeSeconds / 86400);
+        const hours = Math.floor((uptimeSeconds % 86400) / 3600);
+        const minutes = Math.floor((uptimeSeconds % 3600) / 60);
+    
+        const uptimeStr = `${days}d ${hours}h ${minutes}m`;
+    
+        console.log(`[HEARTBEAT] [${getTimestamp()}] RAM: ${(usage.rss / 1024 / 1024).toFixed(2)} MB | Uptime: ${uptimeStr}`);
     }, 300000);
 });
 
@@ -238,18 +263,30 @@ client.on('interactionCreate', async (interaction) => {
     // ───────────────────────────────────────────────────────────────
 
     if (interaction.isAutocomplete()) {
-        const focusedOption = interaction.options.getFocused(); // ce que l'utilisateur tape
+        const focusedOption = interaction.options.getFocused();
+
         try {
-            // On suppose que la commande s'appelle 'show' et que l'option autocomplete s'appelle 'name'
             if (interaction.commandName === 'show') {
+                const type = interaction.options.getString('type');
 
                 if (!focusedOption || focusedOption.length < 1) {
                     return interaction.respond([]);
                   }
-                // Requête : on cherche dans la table items (ou spells selon ton cas)
+                
+                let table;
+                if (type === 'item') {
+                    table = 'items';
+                } else if (type === 'spell') {
+                    table = 'spells';
+                } else if (type === 'build') {
+                    table = 'builds';
+                } else {
+                    return interaction.respond([]);
+                }
+
                 const [rows] = await promisePool.query(
                     `SELECT name
-                     FROM items
+                     FROM ${table}
                      WHERE name LIKE ?
                      ORDER BY
                        CASE
@@ -259,12 +296,11 @@ client.on('interactionCreate', async (interaction) => {
                        name
                      LIMIT 25`,
                     [
-                      `%${focusedOption}%`,        // pour filtrer tous ceux qui contiennent
-                      `${focusedOption}%`          // pour prioriser ceux qui commencent
+                      `%${focusedOption}%`,
+                      `${focusedOption}%`
                     ]
                   );
 
-                // On renvoie les suggestions à Discord
                 await interaction.respond(
                     rows.map(r => ({ name: r.name, value: r.name }))
                 );
@@ -272,7 +308,7 @@ client.on('interactionCreate', async (interaction) => {
         } catch (err) {
             console.error(`[${getTimestamp()}] ❌ Erreur autocomplete:`, err);
         }
-        return; // On arrête là pour l'autocomplete
+        return;
     }
 
     // ───────────────────────────────────────────────────────────────

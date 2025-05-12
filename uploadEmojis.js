@@ -15,7 +15,7 @@ const SERVERS = [
     // Ajoute autant de serveurs que nécessaire
 ];
 
-const ICONS_DIR = './assets'; // Dossier avec tes images d'emojis
+const ICONS_DIR = './assets/spells/'; // Dossier avec tes images d'emojis
 
 const client = new Client({ intents: [GatewayIntentBits.Guilds] });
 

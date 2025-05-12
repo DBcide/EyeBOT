@@ -27,6 +27,7 @@ async function getUserInfo(client, userId) {
     }
 }
 
+
 module.exports = {
     data: new SlashCommandBuilder()
         .setName('show')
