@@ -1,7 +1,21 @@
 {
+  "name": "eyebot",
+  "version": "1.0.0",
+  "description": "",
+  "main": "dist/index.js",
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "dev": "ts-node src/index.ts",
+    "watch": "tsc --watch",
+    "clean": "rm -rf dist"
+  },
+  "author": "Olivier Français (DBcide)",
+  "license": "ISC",
   "dependencies": {
     "discord.js": "^14.25.1",
-    "dotenv": "^16.6.1"
+    "dotenv": "^16.6.1",
+    "mysql2": "^3.16.0"
   },
   "devDependencies": {
     "@types/node": "^24.10.4",
