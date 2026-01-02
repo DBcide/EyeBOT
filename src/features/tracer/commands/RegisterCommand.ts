@@ -5,13 +5,13 @@
     StringSelectMenuBuilder,
     ActionRowBuilder,
     ComponentType,
+    MessageFlagsBitField,
 } from 'discord.js';
 import { BaseCommand } from '../../../core/BaseCommand';
 import { AlbionService } from '../services/AlbionService';
 import { TracerService } from '../services/TracerService';
 import { LoggerService } from '../../../shared/services/LoggerService';
 import { AlbionPlayer } from '../models/AlbionTypes';
-import { MessageFlagsBitField } from 'discord.js';
 
 export default class RegisterCommand extends BaseCommand {
     public name = 'register';
