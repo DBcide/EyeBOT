@@ -12,6 +12,9 @@ import { TracerService } from '../services/TracerService';
 import { LoggerService } from '../../../shared/services/LoggerService';
 import { AlbionPlayer } from '../models/AlbionTypes';
 
+// Ajouter par chat gpt :
+import { TextChannel } from 'discord.js';
+
 export default class RegisterCommand extends BaseCommand {
     public name = 'register';
     public description = 'Enregistrer votre compte Albion Online';
@@ -202,7 +205,7 @@ export default class RegisterCommand extends BaseCommand {
      * Enregistre le joueur sélectionné
      */
     private async registerPlayer(
-        interaction: ChatInputCommandInteraction, // ✅ Changement ici
+        interaction: ChatInputCommandInteraction,
         player: AlbionPlayer,
         fromSelection: boolean = false
     ): Promise<void> {
@@ -214,11 +217,10 @@ export default class RegisterCommand extends BaseCommand {
                 try {
                     const member = await interaction.guild.members.fetch(interaction.user.id);
                     await member.setNickname(`[] ${player.Name}`);
-                } catch (err) { // ✅ Changement ici (renommé 'error' en 'err')
+                } catch (err) {
                     this.logger.warn(
-                        `Impossible de renommer le membre ${interaction.user.tag}` // ✅ Suppression du 2ème argument
+                        `Impossible de renommer le membre ${interaction.user.tag}`
                     );
-                    // Optionnel : logger l'erreur séparément si besoin
                     if (err instanceof Error) {
                         this.logger.debug(`Détails de l'erreur: ${err.message}`);
                     }
@@ -239,21 +241,29 @@ export default class RegisterCommand extends BaseCommand {
                 .setTimestamp();
 
             if (fromSelection) {
+                // Si on vient de la sélection, on update le message éphémère
                 await interaction.editReply({
-                    content: null,
-                    embeds: [publicEmbed],
+                    content: '✅ Enregistrement réussi ! Un message public a été envoyé.',
+                    embeds: [],
                     components: [],
                 });
-            } else {
-                await interaction.editReply({
-                    embeds: [publicEmbed],
-                });
-            }
 
-            // Rendre le message visible par tous
-            await interaction.followUp({
-                embeds: [publicEmbed],
-            });
+                // ✅ CHANGEMENT : Envoyer le message public dans le canal
+                if (interaction.channel?.isSendable()) {
+                    await interaction.channel.send({ embeds: [publicEmbed] });
+                }
+            } else {
+                // Si pas de sélection (1 seul résultat), on met à jour l'éphémère
+                await interaction.editReply({
+                    content: '✅ Enregistrement réussi ! Un message public a été envoyé.',
+                    embeds: [],
+                });
+
+                // ✅ CHANGEMENT : Envoyer le message public dans le canal
+                if (interaction.channel?.isSendable()) {
+                    await interaction.channel.send({ embeds: [publicEmbed] });
+                }
+            }
         } catch (error) {
             this.logger.error('Erreur lors de l\'enregistrement final', error);
 
