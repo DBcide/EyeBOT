@@ -197,4 +197,12 @@ export class Bot {
             }
         });
     }
+
+    /**
+     * Charge uniquement les commandes sans démarrer le bot
+     * Utilisé par le script d'enregistrement des commandes
+     */
+    public async loadCommandsOnly(): Promise<void> {
+        await this.loadCommands();
+    }
 }
