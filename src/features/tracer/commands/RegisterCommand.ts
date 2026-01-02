@@ -216,7 +216,11 @@ export default class RegisterCommand extends BaseCommand {
             if (interaction.guild && interaction.member) {
                 try {
                     const member = await interaction.guild.members.fetch(interaction.user.id);
-                    await member.setNickname(`[] ${player.Name}`);
+
+                    const tag = buildGuildTag(player.GuildName);
+                    const nickname = `${tag} ${player.Name}`;
+
+                    await member.setNickname(nickname);
                 } catch (err) {
                     this.logger.warn(
                         `Impossible de renommer le membre ${interaction.user.tag}`
@@ -274,4 +278,28 @@ export default class RegisterCommand extends BaseCommand {
             await interaction.editReply(errorMessage);
         }
     }
+}
+
+function buildGuildTag(guildName?: string | null): string {
+    if (!guildName || guildName.trim().length === 0) {
+        return '[]';
+    }
+
+    // Supprimer TOUS les espaces
+    const noSpaces = guildName.replace(/\s+/g, '');
+
+    // Extraire les majuscules A–Z
+    const uppercaseLetters = noSpaces.match(/[A-Z]/g) ?? [];
+
+    let tag: string;
+
+    if (uppercaseLetters.length > 1) {
+        // Cas 3 : plusieurs majuscules
+        tag = uppercaseLetters.slice(0, 5).join('');
+    } else {
+        // Cas 2 : 0 ou 1 majuscule
+        tag = noSpaces.slice(0, 5);
+    }
+
+    return `[${tag}]`;
 }
