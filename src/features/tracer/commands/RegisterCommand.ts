@@ -11,9 +11,7 @@ import { AlbionService } from '../services/AlbionService';
 import { TracerService } from '../services/TracerService';
 import { LoggerService } from '../../../shared/services/LoggerService';
 import { AlbionPlayer } from '../models/AlbionTypes';
-
-// Ajouter par chat gpt :
-import { TextChannel } from 'discord.js';
+import { MessageFlagsBitField } from 'discord.js';
 
 export default class RegisterCommand extends BaseCommand {
     public name = 'register';
@@ -54,7 +52,7 @@ export default class RegisterCommand extends BaseCommand {
         }
 
         // Rechercher le joueur sur Albion
-        await interaction.deferReply({ ephemeral: true });
+        await interaction.deferReply({ flags: MessageFlagsBitField.Flags.Ephemeral });
 
         try {
             const players = await this.albionService.searchPlayer(pseudo);
@@ -91,7 +89,7 @@ export default class RegisterCommand extends BaseCommand {
         if (!user) {
             await interaction.reply({
                 content: '❌ Erreur : utilisateur introuvable dans la base de données.',
-                ephemeral: true,
+                flags: MessageFlagsBitField.Flags.Ephemeral,
             });
             return;
         }
