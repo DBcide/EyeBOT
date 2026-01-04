@@ -13,6 +13,8 @@ import { TracerService } from '../services/TracerService';
 import { LoggerService } from '../../../shared/services/LoggerService';
 import { ServiceContainer } from '../../../shared/services/ServiceContainer';
 import { AlbionPlayer } from '../models/AlbionTypes';
+import { updateMemberNickname } from '../utils/DiscordUtils';
+import { getAlbionApiErrorMessage } from '../utils/ErrorHandlers';
 
 export default class RegisterCommand extends BaseCommand {
     public name = 'register';
@@ -20,7 +22,7 @@ export default class RegisterCommand extends BaseCommand {
 
     private albionService: AlbionService;
     private tracerService: TracerService;
-    private logger: LoggerService;
+    private readonly logger: LoggerService;
 
     constructor() {
         super();
@@ -71,18 +73,8 @@ export default class RegisterCommand extends BaseCommand {
         } catch (error: any) {
             this.logger.error('Erreur lors de l\'enregistrement', error);
 
-            let errorMessage = '❌ Une erreur est survenue lors de la recherche. Réessayez plus tard.';
-
-            if (error.message && error.message.includes('timeout')) {
-                errorMessage = '❌ L\'API Albion met trop de temps à répondre. Réessayez dans quelques instants.';
-            } else if (error.message && error.message.includes('Rate limit')) {
-                errorMessage = '❌ Trop de requêtes à l\'API Albion. Veuillez patienter quelques instants avant de réessayer.';
-            } else if (error.message && error.message.includes('fetch')) {
-                errorMessage = '❌ Impossible de contacter l\'API Albion. Vérifiez votre connexion internet.';
-            }
-
             await interaction.editReply({
-                content: errorMessage,
+                content: getAlbionApiErrorMessage(error),
             });
         }
     }
@@ -278,23 +270,13 @@ export default class RegisterCommand extends BaseCommand {
             await this.tracerService.registerUser(interaction.user.id, player);
 
             // Renommer le membre sur le serveur
-            if (interaction.guild && interaction.member) {
-                try {
-                    const member = await interaction.guild.members.fetch(interaction.user.id);
-
-                    const tag = buildGuildTag(player.GuildName);
-                    const nickname = `${tag} ${player.Name}`;
-
-                    await member.setNickname(nickname);
-                } catch (err) {
-                    this.logger.warn(
-                        `Impossible de renommer le membre ${interaction.user.tag}`
-                    );
-                    if (err instanceof Error) {
-                        this.logger.debug(`Détails de l'erreur: ${err.message}`);
-                    }
-                }
-            }
+            await updateMemberNickname(
+                interaction.guild,
+                interaction.user.id,
+                player.Name,
+                player.GuildName,
+                this.logger
+            );
 
             // Récupérer TOUS les personnages de l'utilisateur pour l'embed récapitulatif
             const allCharacters = await this.tracerService.getRegisteredUsers(interaction.user.id);
@@ -380,23 +362,13 @@ export default class RegisterCommand extends BaseCommand {
             await this.tracerService.registerUser(interaction.user.id, player);
 
             // Renommer le membre sur le serveur
-            if (interaction.guild && interaction.member) {
-                try {
-                    const member = await interaction.guild.members.fetch(interaction.user.id);
-
-                    const tag = buildGuildTag(player.GuildName);
-                    const nickname = `${tag} ${player.Name}`;
-
-                    await member.setNickname(nickname);
-                } catch (err) {
-                    this.logger.warn(
-                        `Impossible de renommer le membre ${interaction.user.tag}`
-                    );
-                    if (err instanceof Error) {
-                        this.logger.debug(`Détails de l'erreur: ${err.message}`);
-                    }
-                }
-            }
+            await updateMemberNickname(
+                interaction.guild,
+                interaction.user.id,
+                player.Name,
+                player.GuildName,
+                this.logger
+            );
 
             // Récupérer TOUS les personnages de l'utilisateur pour l'embed récapitulatif
             const allCharacters = await this.tracerService.getRegisteredUsers(interaction.user.id);
@@ -470,23 +442,4 @@ export default class RegisterCommand extends BaseCommand {
             });
         }
     }
-}
-
-function buildGuildTag(guildName?: string | null): string {
-    if (!guildName || guildName.trim().length === 0) {
-        return '[]';
-    }
-
-    const noSpaces = guildName.replace(/\s+/g, '');
-    const uppercaseLetters = noSpaces.match(/[A-Z]/g) ?? [];
-
-    let tag: string;
-
-    if (uppercaseLetters.length > 1) {
-        tag = uppercaseLetters.slice(0, 5).join('');
-    } else {
-        tag = noSpaces.slice(0, 5);
-    }
-
-    return `[${tag}]`;
 }
