@@ -79,6 +79,23 @@ export class TracerService {
     }
 
     /**
+     * Vérifie si un personnage Albion est vérifié
+     * Retourne true si le personnage est vérifié, false sinon
+     */
+    public async isAlbionCharacterVerified(albionId: string): Promise<boolean> {
+        try {
+            const user = await this.db.selectOne<TracerUser>(
+                'SELECT is_verified FROM tracer_users WHERE albion_id = ?',
+                [albionId]
+            );
+            return user ? user.is_verified === 1 : false;
+        } catch (error) {
+            this.logger.error('Erreur lors de la vérification du statut de vérification', error);
+            throw error;
+        }
+    }
+
+    /**
      * Enregistre un nouveau personnage pour un utilisateur
      */
     public async registerUser(

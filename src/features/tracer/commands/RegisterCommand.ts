@@ -98,10 +98,38 @@ export default class RegisterCommand extends BaseCommand {
         const claimedBy = await this.tracerService.isAlbionCharacterClaimed(player.Id);
 
         if (claimedBy && claimedBy !== interaction.user.id) {
-            await interaction.editReply({
-                content: `❌ Ce personnage est déjà lié à un autre compte Discord (<@${claimedBy}>).`,
-            });
-            return;
+            // Le personnage est déjà lié à un autre compte Discord
+            // Vérifier si le compte est vérifié
+            const isVerified = await this.tracerService.isAlbionCharacterVerified(player.Id);
+
+            if (isVerified) {
+                // Compte vérifié : refus strict
+                const embed = new EmbedBuilder()
+                    .setColor('#E74C3C')
+                    .setTitle('❌ Personnage déjà vérifié')
+                    .setDescription(
+                        `Ce personnage est déjà lié et **vérifié** par un autre compte Discord (<@${claimedBy}>).\n\n` +
+                        `⚠️ Un personnage vérifié ne peut pas être lié à un autre compte Discord.`
+                    )
+                    .addFields(
+                        {
+                            name: '📋 Informations du personnage',
+                            value:
+                                `**Albion :** ${player.Name}\n` +
+                                `**Kill Fame :** ${this.albionService.formatFame(player.KillFame)}\n` +
+                                `**Guilde :** ${player.GuildName || 'Aucune'}`,
+                            inline: false
+                        }
+                    )
+                    .setTimestamp();
+
+                await interaction.editReply({ embeds: [embed] });
+                return;
+            } else {
+                // Compte non vérifié : avertissement mais autorisation
+                await this.registerPlayerWithWarning(interaction, player, claimedBy);
+                return;
+            }
         }
 
         if (claimedBy === interaction.user.id) {
@@ -121,17 +149,32 @@ export default class RegisterCommand extends BaseCommand {
         interaction: ChatInputCommandInteraction,
         player: AlbionPlayer
     ): Promise<void> {
+        // Vérifier si le personnage est vérifié
+        const isVerified = await this.tracerService.isAlbionCharacterVerified(player.Id);
+
         const embed = new EmbedBuilder()
-            .setColor('#FF6B6B')
-            .setTitle('⚠️ Personnage déjà enregistré')
+            .setColor(isVerified ? '#2ECC71' : '#FF6B6B')
+            .setTitle(isVerified ? '✅ Personnage déjà enregistré et vérifié' : '⚠️ Personnage déjà enregistré')
             .setDescription(
                 `Ce personnage est déjà lié à votre compte Discord.\n\n` +
                 `**Albion :** ${player.Name}\n` +
                 `**Kill Fame :** ${this.albionService.formatFame(player.KillFame)}\n` +
                 `**Guilde :** ${player.GuildName || 'Aucune'}\n` +
-                `**Alliance :** ${player.AllianceName || 'Aucune'}`
+                `**Alliance :** ${player.AllianceName || 'Aucune'}\n` +
+                `**Statut :** ${isVerified ? '🔒 Vérifié' : '⚠️ Non vérifié'}`
             )
             .setTimestamp();
+
+        // Ajouter un champ d'information sur la vérification si le personnage n'est pas vérifié
+        if (!isVerified) {
+            embed.addFields({
+                name: '💡 Conseil',
+                value:
+                    `Pour **sécuriser** ce personnage, vérifiez-le en envoyant un mail in-game à **DBcide** ` +
+                    `avec votre Discord ID (\`${interaction.user.id}\`). Cela empêchera d'autres joueurs de le revendiquer.`,
+                inline: false
+            });
+        }
 
         await interaction.editReply({ embeds: [embed] });
     }
@@ -269,6 +312,20 @@ export default class RegisterCommand extends BaseCommand {
                 )
                 .setTimestamp();
 
+            // Embed d'information sur la vérification
+            const verificationEmbed = new EmbedBuilder()
+                .setColor('#F39C12')
+                .setTitle('🔒 Sécurisez votre personnage !')
+                .setDescription(
+                    `Pour **protéger** votre personnage et empêcher d'autres joueurs de le revendiquer :\n\n` +
+                    `**1.** Connectez-vous sur **Albion Online** avec le personnage **${player.Name}**\n` +
+                    `**2.** Envoyez un **courrier in-game** à **DBcide**\n` +
+                    `**3.** Dans le courrier, indiquez votre Discord ID : \`${interaction.user.id}\`\n` +
+                    `**4.** Attendez la validation par un administrateur\n\n` +
+                    `⚠️ **Important :** C'est bien le personnage Albion qui doit envoyer le courrier !`
+                )
+                .setFooter({ text: 'Une fois vérifié, ce personnage sera définitivement lié à votre compte Discord' });
+
             // Embed récapitulatif : tous les personnages
             const summaryEmbed = new EmbedBuilder()
                 .setColor('#4A90E2')
@@ -280,12 +337,12 @@ export default class RegisterCommand extends BaseCommand {
                                 (char, index) =>
                                     `**${index + 1}.** ${char.albion_name} - ${this.albionService.formatFame(
                                         char.kill_fame
-                                    )} Kill Fame`
+                                    )} Kill Fame ${char.is_verified ? '🔒' : ''}`
                             )
                             .join('\n')
                         : 'Aucun personnage enregistré.'
                 )
-                .setFooter({ text: `Total : ${allCharacters.length} personnage(s)` });
+                .setFooter({ text: `Total : ${allCharacters.length} personnage(s) | 🔒 = Vérifié` });
 
             // Message éphémère de confirmation
             await interaction.editReply({
@@ -294,14 +351,117 @@ export default class RegisterCommand extends BaseCommand {
                 components: [],
             });
 
-            // Message public avec les 2 embeds
+            // Message public avec les 3 embeds
             if (interaction.channel?.isSendable()) {
                 await interaction.channel.send({
-                    embeds: [mainEmbed, summaryEmbed]
+                    embeds: [mainEmbed, verificationEmbed, summaryEmbed]
                 });
             }
         } catch (error) {
             this.logger.error('Erreur lors de l\'enregistrement final', error);
+
+            await interaction.editReply({
+                content: '❌ Erreur lors de l\'enregistrement.',
+                embeds: [],
+                components: [],
+            });
+        }
+    }
+
+    /**
+     * Enregistre le joueur avec un avertissement sur le système de vérification
+     */
+    private async registerPlayerWithWarning(
+        interaction: ChatInputCommandInteraction,
+        player: AlbionPlayer,
+        previousOwner: string
+    ): Promise<void> {
+        try {
+            await this.tracerService.registerUser(interaction.user.id, player);
+
+            // Renommer le membre sur le serveur
+            if (interaction.guild && interaction.member) {
+                try {
+                    const member = await interaction.guild.members.fetch(interaction.user.id);
+
+                    const tag = buildGuildTag(player.GuildName);
+                    const nickname = `${tag} ${player.Name}`;
+
+                    await member.setNickname(nickname);
+                } catch (err) {
+                    this.logger.warn(
+                        `Impossible de renommer le membre ${interaction.user.tag}`
+                    );
+                    if (err instanceof Error) {
+                        this.logger.debug(`Détails de l'erreur: ${err.message}`);
+                    }
+                }
+            }
+
+            // Récupérer TOUS les personnages de l'utilisateur pour l'embed récapitulatif
+            const allCharacters = await this.tracerService.getRegisteredUsers(interaction.user.id);
+
+            // Embed principal : nouveau personnage avec avertissement
+            const mainEmbed = new EmbedBuilder()
+                .setColor('#F39C12')
+                .setTitle('⚠️ Personnage enregistré (non vérifié)')
+                .setDescription(
+                    `**Discord :** <@${interaction.user.id}>\n` +
+                    `**Albion :** ${player.Name}\n` +
+                    `**Kill Fame :** ${this.albionService.formatFame(player.KillFame)}\n` +
+                    `**Guilde :** ${player.GuildName || 'Aucune'}\n` +
+                    `**Alliance :** ${player.AllianceName || 'Aucune'}\n\n` +
+                    `⚠️ **Attention :** Ce personnage était précédemment lié à <@${previousOwner}>.\n` +
+                    `Le compte n'étant pas vérifié, vous pouvez le revendiquer.`
+                )
+                .setTimestamp();
+
+            // Embed d'information sur la vérification
+            const verificationEmbed = new EmbedBuilder()
+                .setColor('#3498DB')
+                .setTitle('🔒 Comment vérifier votre personnage ?')
+                .setDescription(
+                    `Pour **sécuriser** votre personnage et empêcher d'autres joueurs de le revendiquer :\n\n` +
+                    `**1.** Connectez-vous sur Albion Online avec ce personnage\n` +
+                    `**2.** Envoyez un mail in-game à **DBcide** avec votre Discord ID (\`${interaction.user.id}\`)\n` +
+                    `**3.** Attendez la validation par un administrateur\n\n` +
+                    `Une fois vérifié, ce personnage sera définitivement lié à votre compte Discord.`
+                )
+                .setFooter({ text: 'La vérification protège votre personnage contre les revendications frauduleuses' });
+
+            // Embed récapitulatif : tous les personnages
+            const summaryEmbed = new EmbedBuilder()
+                .setColor('#4A90E2')
+                .setTitle('📋 Personnages liés à ce compte')
+                .setDescription(
+                    allCharacters.length > 0
+                        ? allCharacters
+                            .map(
+                                (char, index) =>
+                                    `**${index + 1}.** ${char.albion_name} - ${this.albionService.formatFame(
+                                        char.kill_fame
+                                    )} Kill Fame ${char.is_verified ? '🔒' : ''}`
+                            )
+                            .join('\n')
+                        : 'Aucun personnage enregistré.'
+                )
+                .setFooter({ text: `Total : ${allCharacters.length} personnage(s) | 🔒 = Vérifié` });
+
+            // Message éphémère de confirmation
+            await interaction.editReply({
+                content: '⚠️ Personnage enregistré avec avertissement. Vérifiez-le pour le sécuriser !',
+                embeds: [],
+                components: [],
+            });
+
+            // Message public avec les 3 embeds
+            if (interaction.channel?.isSendable()) {
+                await interaction.channel.send({
+                    embeds: [mainEmbed, verificationEmbed, summaryEmbed]
+                });
+            }
+        } catch (error) {
+            this.logger.error('Erreur lors de l\'enregistrement avec avertissement', error);
 
             await interaction.editReply({
                 content: '❌ Erreur lors de l\'enregistrement.',

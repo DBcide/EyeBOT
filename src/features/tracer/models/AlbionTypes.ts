@@ -88,6 +88,8 @@ export interface TracerUser {
     death_fame: number;
     guild_name: string | null;
     alliance_name: string | null;
+    is_verified: number; // 0 = non vérifié, 1 = vérifié
+    is_main: number; // 0 = personnage secondaire, 1 = personnage principal
     registered_at: Date;
     updated_at: Date;
 }
