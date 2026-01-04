@@ -37,7 +37,7 @@ export class TracerService {
     public async getRegisteredUsers(discordId: string): Promise<TracerUser[]> {
         try {
             return await this.db.select<TracerUser>(
-                'SELECT * FROM tracer_users WHERE discord_id = ? ORDER BY registered_at ASC',
+                'SELECT * FROM tracer_users WHERE discord_id = ? ORDER BY registered_at',
                 [discordId]
             );
         } catch (error) {
