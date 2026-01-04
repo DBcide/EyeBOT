@@ -39,6 +39,44 @@ export interface AlbionPlayer {
 }
 
 /**
+ * Réponse détaillée de l'API pour un joueur spécifique (/players/{id})
+ */
+export interface AlbionPlayerDetailed {
+    Name: string;
+    Id: string;
+    GuildName: string;
+    GuildId: string;
+    AllianceName: string;
+    AllianceId: string;
+    AllianceTag: string;
+    Avatar: string;
+    AvatarRing: string;
+    DeathFame: number;
+    KillFame: number;
+    FameRatio: number;
+    LifetimeStatistics: {
+        PvE: {
+            Total: number;
+            Royal: number;
+            Outlands: number;
+            Avalon: number;
+            Hellgate: number;
+            CorruptedDungeon: number;
+            Mists: number;
+        };
+        Gathering: any;
+        Crafting: any;
+        CrystalLeague: number;
+        FishingFame: number;
+        FarmingFame: number;
+        Timestamp: string;
+    };
+    AverageItemPower: number;
+    Equipment: any;
+    Inventory: any[];
+}
+
+/**
  * Données d'un utilisateur enregistré dans notre base
  */
 export interface TracerUser {

@@ -1,4 +1,4 @@
-﻿import { AlbionSearchResponse, AlbionPlayer } from '../models/AlbionTypes';
+﻿import { AlbionSearchResponse, AlbionPlayer, AlbionPlayerDetailed } from '../models/AlbionTypes';
 import { LoggerService } from '../../../shared/services/LoggerService';
 
 /**
@@ -6,10 +6,31 @@ import { LoggerService } from '../../../shared/services/LoggerService';
  */
 export class AlbionService {
     private readonly API_BASE_URL = 'https://gameinfo-ams.albiononline.com/api/gameinfo';
+    private readonly TIMEOUT_MS = 10000;
     private logger: LoggerService;
 
     constructor() {
         this.logger = new LoggerService();
+    }
+
+    /**
+     * Effectue une requête fetch avec timeout
+     */
+    private async fetchWithTimeout(url: string, timeoutMs: number = this.TIMEOUT_MS): Promise<Response> {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+
+        try {
+            const response = await fetch(url, { signal: controller.signal });
+            clearTimeout(timeoutId);
+            return response;
+        } catch (error: any) {
+            clearTimeout(timeoutId);
+            if (error.name === 'AbortError') {
+                throw new Error('Request timeout: L\'API Albion met trop de temps à répondre');
+            }
+            throw error;
+        }
     }
 
     /**
@@ -22,13 +43,16 @@ export class AlbionService {
             const url = `${this.API_BASE_URL}/search?q=${encodeURIComponent(playerName)}`;
             this.logger.debug(`Recherche Albion API: ${playerName}`);
 
-            const response = await fetch(url);
+            const response = await this.fetchWithTimeout(url);
 
             if (!response.ok) {
+                if (response.status === 429) {
+                    throw new Error('Rate limit: Trop de requêtes à l\'API Albion. Réessayez dans quelques instants.');
+                }
                 throw new Error(`API Albion error: ${response.status} ${response.statusText}`);
             }
 
-            const data = await response.json() as AlbionSearchResponse; // ✅ Cast explicite
+            const data = await response.json() as AlbionSearchResponse;
 
             this.logger.debug(`Résultats trouvés: ${data.players.length} joueur(s)`);
 
@@ -40,28 +64,30 @@ export class AlbionService {
     }
 
     /**
-     * Récupère les informations d'un joueur spécifique par son ID
+     * Récupère les informations détaillées d'un joueur par son ID
      * @param playerId ID du joueur Albion
-     * @returns Informations du joueur ou null
+     * @returns Informations détaillées du joueur ou null
      */
-    public async getPlayerById(playerId: string): Promise<AlbionPlayer | null> {
+    public async getPlayerDetailsById(playerId: string): Promise<AlbionPlayerDetailed | null> {
         try {
             const url = `${this.API_BASE_URL}/players/${playerId}`;
-            this.logger.debug(`Récupération joueur Albion: ${playerId}`);
+            this.logger.debug(`Récupération détails joueur Albion: ${playerId}`);
 
-            const response = await fetch(url);
+            const response = await this.fetchWithTimeout(url);
 
             if (!response.ok) {
                 if (response.status === 404) {
                     return null;
                 }
+                if (response.status === 429) {
+                    throw new Error('Rate limit: Trop de requêtes à l\'API Albion. Réessayez dans quelques instants.');
+                }
                 throw new Error(`API Albion error: ${response.status} ${response.statusText}`);
             }
 
-            const player = await response.json() as AlbionPlayer; // ✅ Cast explicite
-            return player;
+            return await response.json() as AlbionPlayerDetailed;
         } catch (error) {
-            this.logger.error('Erreur lors de la récupération du joueur', error);
+            this.logger.error('Erreur lors de la récupération des détails du joueur', error);
             throw error;
         }
     }

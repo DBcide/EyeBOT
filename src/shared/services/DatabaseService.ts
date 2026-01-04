@@ -9,11 +9,11 @@ export class DatabaseService {
     private pool: mysql.Pool;
     private logger: LoggerService;
     private isConnected: boolean = false;
+    private connectionPromise?: Promise<void>;
 
     constructor() {
         this.logger = new LoggerService();
 
-        // Créer le pool de connexions
         this.pool = mysql.createPool({
             host: process.env.DB_HOST || 'localhost',
             user: process.env.DB_USER || 'root',
@@ -21,30 +21,36 @@ export class DatabaseService {
             port: Number(process.env.DB_PORT) || 3306,
             database: process.env.DB_NAME || 'eyebot',
             waitForConnections: true,
-            connectionLimit: 10,              // Nombre max de connexions simultanées
-            queueLimit: 0,                    // Pas de limite de file d'attente
-            enableKeepAlive: true,            // Maintenir les connexions actives
+            connectionLimit: 10,
+            queueLimit: 0,
+            enableKeepAlive: true,
             keepAliveInitialDelay: 0
         });
-
-        // Tester la connexion au démarrage
-        this.testConnection();
     }
 
     /**
-     * Teste la connexion à la base de données
+     * Teste la connexion à la base de données (à appeler explicitement)
      */
-    private async testConnection(): Promise<void> {
-        try {
-            const connection = await this.pool.getConnection();
-            await connection.ping();
-            connection.release();
-            this.isConnected = true;
-            this.logger.success('Connexion à la base de données établie');
-        } catch (error) {
-            this.isConnected = false;
-            this.logger.error('Échec de la connexion à la base de données', error);
+    public async testConnection(): Promise<void> {
+        if (this.connectionPromise) {
+            return this.connectionPromise;
         }
+
+        this.connectionPromise = (async () => {
+            try {
+                const connection = await this.pool.getConnection();
+                await connection.ping();
+                connection.release();
+                this.isConnected = true;
+                this.logger.success('Connexion à la base de données établie');
+            } catch (error) {
+                this.isConnected = false;
+                this.logger.error('Échec de la connexion à la base de données', error);
+                throw error;
+            }
+        })();
+
+        return this.connectionPromise;
     }
 
     /**

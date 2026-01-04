@@ -1,6 +1,6 @@
 ﻿import { DatabaseService } from '../../../shared/services/DatabaseService';
 import { LoggerService } from '../../../shared/services/LoggerService';
-import { TracerUser } from '../models/AlbionTypes';
+import {AlbionPlayerDetailed, TracerUser} from '../models/AlbionTypes';
 import { AlbionPlayer } from '../models/AlbionTypes';
 
 /**
@@ -135,6 +135,36 @@ export class TracerService {
             );
 
             this.logger.success(`Personnage ${albionPlayer.Name} mis à jour`);
+        } catch (error) {
+            this.logger.error('Erreur lors de la mise à jour du personnage', error);
+            throw error;
+        }
+    }
+
+    /**
+     * Met à jour les informations d'un personnage depuis l'API Albion
+     */
+    public async updateUserFromApi(
+        albionId: string,
+        playerDetails: AlbionPlayerDetailed
+    ): Promise<void> {
+        try {
+            await this.db.execute(
+                `UPDATE tracer_users 
+      SET albion_name = ?, kill_fame = ?, death_fame = ?, 
+          guild_name = ?, alliance_name = ?, updated_at = NOW()
+      WHERE albion_id = ?`,
+                [
+                    playerDetails.Name,
+                    playerDetails.KillFame,
+                    playerDetails.DeathFame,
+                    playerDetails.GuildName || null,
+                    playerDetails.AllianceName || null,
+                    albionId,
+                ]
+            );
+
+            this.logger.success(`Personnage ${playerDetails.Name} mis à jour depuis l'API`);
         } catch (error) {
             this.logger.error('Erreur lors de la mise à jour du personnage', error);
             throw error;

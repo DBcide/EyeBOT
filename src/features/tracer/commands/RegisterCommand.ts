@@ -11,6 +11,7 @@ import { BaseCommand } from '../../../core/BaseCommand';
 import { AlbionService } from '../services/AlbionService';
 import { TracerService } from '../services/TracerService';
 import { LoggerService } from '../../../shared/services/LoggerService';
+import { ServiceContainer } from '../../../shared/services/ServiceContainer';
 import { AlbionPlayer } from '../models/AlbionTypes';
 
 export default class RegisterCommand extends BaseCommand {
@@ -23,9 +24,10 @@ export default class RegisterCommand extends BaseCommand {
 
     constructor() {
         super();
+        const services = ServiceContainer.getInstance();
+        this.logger = services.logger;
         this.albionService = new AlbionService();
         this.tracerService = new TracerService();
-        this.logger = new LoggerService();
     }
 
     public buildCommand(): SlashCommandBuilder {
@@ -47,6 +49,8 @@ export default class RegisterCommand extends BaseCommand {
         await interaction.deferReply({ flags: MessageFlagsBitField.Flags.Ephemeral });
 
         try {
+            this.logger.debug(`Recherche du joueur: ${pseudo}`);
+
             const players = await this.albionService.searchPlayer(pseudo);
 
             if (players.length === 0) {
@@ -64,10 +68,21 @@ export default class RegisterCommand extends BaseCommand {
 
             // Si plusieurs résultats, afficher un menu de sélection
             await this.showPlayerSelection(interaction, players);
-        } catch (error) {
+        } catch (error: any) {
             this.logger.error('Erreur lors de l\'enregistrement', error);
+
+            let errorMessage = '❌ Une erreur est survenue lors de la recherche. Réessayez plus tard.';
+
+            if (error.message && error.message.includes('timeout')) {
+                errorMessage = '❌ L\'API Albion met trop de temps à répondre. Réessayez dans quelques instants.';
+            } else if (error.message && error.message.includes('Rate limit')) {
+                errorMessage = '❌ Trop de requêtes à l\'API Albion. Veuillez patienter quelques instants avant de réessayer.';
+            } else if (error.message && error.message.includes('fetch')) {
+                errorMessage = '❌ Impossible de contacter l\'API Albion. Vérifiez votre connexion internet.';
+            }
+
             await interaction.editReply({
-                content: '❌ Une erreur est survenue lors de la recherche. Réessayez plus tard.',
+                content: errorMessage,
             });
         }
     }

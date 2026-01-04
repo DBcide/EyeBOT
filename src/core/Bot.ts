@@ -2,6 +2,7 @@
 import { BaseCommand } from './BaseCommand';
 import { BaseEvent } from './BaseEvent';
 import { LoggerService } from '../shared/services/LoggerService';
+import { ServiceContainer } from '../shared/services/ServiceContainer';
 import fs from 'fs';
 import path from 'path';
 
@@ -9,38 +10,25 @@ import path from 'path';
  * Classe principale du bot qui gère l'initialisation et l'orchestration
  */
 export class Bot {
-    /**
-     * Client Discord.js - l'interface avec Discord
-     */
     public client: Client;
-
-    /**
-     * Collection de toutes les commandes chargées
-     * Key: nom de la commande, Value: instance de la commande
-     */
     public commands: Collection<string, BaseCommand>;
-
-    /**
-     * Service de logging
-     */
     private logger: LoggerService;
+    private services: ServiceContainer;
 
     constructor() {
-        // Initialiser le logger
         this.logger = new LoggerService();
+        this.services = ServiceContainer.getInstance();
 
-        // Initialiser le client Discord avec les intents nécessaires
         this.client = new Client({
             intents: [
-                GatewayIntentBits.Guilds,              // Événements de serveur
-                GatewayIntentBits.GuildMembers,        // Événements de membres
-                GatewayIntentBits.GuildMessages,       // Événements de messages
-                GatewayIntentBits.MessageContent,      // Contenu des messages
-                GatewayIntentBits.GuildPresences,      // Statuts des membres (online, offline, etc.)
+                GatewayIntentBits.Guilds,
+                GatewayIntentBits.GuildMembers,
+                GatewayIntentBits.GuildMessages,
+                GatewayIntentBits.MessageContent,
+                GatewayIntentBits.GuildPresences,
             ]
         });
 
-        // Initialiser la collection de commandes
         this.commands = new Collection();
     }
 
@@ -50,16 +38,11 @@ export class Bot {
     public async start(): Promise<void> {
         this.logger.info('🚀 Démarrage du bot...');
 
-        // 1. Charger toutes les commandes
+        await this.services.database.testConnection();
+
         await this.loadCommands();
-
-        // 2. Charger tous les événements
         await this.loadEvents();
-
-        // 3. Enregistrer le gestionnaire d'interactions pour les commandes
         this.registerInteractionHandler();
-
-        // 4. Se connecter à Discord
         await this.client.login(process.env.DISCORD_TOKEN);
     }
 
