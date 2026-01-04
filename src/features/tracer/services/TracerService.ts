@@ -203,4 +203,44 @@ export class TracerService {
             throw error;
         }
     }
+
+    /**
+     * Vérifie un personnage Albion pour un utilisateur Discord spécifique
+     * et supprime toutes les autres revendications du même personnage
+     */
+    public async verifyCharacter(discordId: string, albionId: string): Promise<void> {
+        try {
+            // Supprimer toutes les autres revendications de ce personnage
+            await this.db.execute(
+                'DELETE FROM tracer_users WHERE albion_id = ? AND discord_id != ?',
+                [albionId, discordId]
+            );
+
+            // Marquer le personnage comme vérifié
+            await this.db.execute(
+                'UPDATE tracer_users SET is_verified = 1, updated_at = NOW() WHERE albion_id = ? AND discord_id = ?',
+                [albionId, discordId]
+            );
+
+            this.logger.success(`Personnage ${albionId} vérifié pour l'utilisateur ${discordId}`);
+        } catch (error) {
+            this.logger.error('Erreur lors de la vérification du personnage', error);
+            throw error;
+        }
+    }
+
+    /**
+     * Récupère toutes les revendications d'un personnage Albion (pour vérifier les doublons)
+     */
+    public async getAllClaimsForCharacter(albionId: string): Promise<TracerUser[]> {
+        try {
+            return await this.db.select<TracerUser>(
+                'SELECT * FROM tracer_users WHERE albion_id = ? ORDER BY registered_at',
+                [albionId]
+            );
+        } catch (error) {
+            this.logger.error('Erreur lors de la récupération des revendications', error);
+            throw error;
+        }
+    }
 }
