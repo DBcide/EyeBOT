@@ -43,14 +43,6 @@ export default class RegisterCommand extends BaseCommand {
     public async execute(interaction: ChatInputCommandInteraction): Promise<void> {
         const pseudo = interaction.options.getString('pseudo', true);
 
-        // Vérifier si l'utilisateur est déjà enregistré
-        const isRegistered = await this.tracerService.isUserRegistered(interaction.user.id);
-
-        if (isRegistered) {
-            await this.handleAlreadyRegistered(interaction);
-            return;
-        }
-
         // Rechercher le joueur sur Albion
         await interaction.deferReply({ flags: MessageFlagsBitField.Flags.Ephemeral });
 
@@ -64,9 +56,9 @@ export default class RegisterCommand extends BaseCommand {
                 return;
             }
 
-            // Si un seul résultat et correspond exactement
+            // Si un seul résultat
             if (players.length === 1) {
-                await this.registerPlayer(interaction, players[0]);
+                await this.handlePlayerRegistration(interaction, players[0]);
                 return;
             }
 
@@ -81,34 +73,52 @@ export default class RegisterCommand extends BaseCommand {
     }
 
     /**
-     * Gère le cas où l'utilisateur est déjà enregistré
+     * Gère l'enregistrement d'un joueur après vérifications
      */
-    private async handleAlreadyRegistered(interaction: ChatInputCommandInteraction): Promise<void> {
-        const user = await this.tracerService.getRegisteredUser(interaction.user.id);
+    private async handlePlayerRegistration(
+        interaction: ChatInputCommandInteraction,
+        player: AlbionPlayer
+    ): Promise<void> {
+        // Vérifier si ce personnage Albion est déjà revendiqué par quelqu'un
+        const claimedBy = await this.tracerService.isAlbionCharacterClaimed(player.Id);
 
-        if (!user) {
-            await interaction.reply({
-                content: '❌ Erreur : utilisateur introuvable dans la base de données.',
-                flags: MessageFlagsBitField.Flags.Ephemeral,
+        if (claimedBy && claimedBy !== interaction.user.id) {
+            await interaction.editReply({
+                content: `❌ Ce personnage est déjà lié à un autre compte Discord (<@${claimedBy}>).`,
             });
             return;
         }
 
+        if (claimedBy === interaction.user.id) {
+            // Le personnage est déjà lié à l'utilisateur actuel
+            await this.handleAlreadyRegistered(interaction, player);
+            return;
+        }
+
+        // Personnage non réclamé, on peut l'enregistrer
+        await this.registerPlayer(interaction, player);
+    }
+
+    /**
+     * Gère le cas où l'utilisateur essaie d'enregistrer un personnage qu'il possède déjà
+     */
+    private async handleAlreadyRegistered(
+        interaction: ChatInputCommandInteraction,
+        player: AlbionPlayer
+    ): Promise<void> {
         const embed = new EmbedBuilder()
             .setColor('#FF6B6B')
-            .setTitle('⚠️ Déjà enregistré')
+            .setTitle('⚠️ Personnage déjà enregistré')
             .setDescription(
-                `Vous êtes déjà enregistré dans le système.\n\n` +
-                `**Discord :** <@${user.discord_id}>\n` +
-                `**Albion :** ${user.albion_name}\n` +
-                `**Kill Fame :** ${this.albionService.formatFame(user.kill_fame)}\n` +
-                `**Guilde :** ${user.guild_name || 'Aucune'}\n` +
-                `**Alliance :** ${user.alliance_name || 'Aucune'}\n\n` +
-                `*Enregistré le : ${new Date(user.registered_at).toLocaleDateString('fr-FR')}*`
+                `Ce personnage est déjà lié à votre compte Discord.\n\n` +
+                `**Albion :** ${player.Name}\n` +
+                `**Kill Fame :** ${this.albionService.formatFame(player.KillFame)}\n` +
+                `**Guilde :** ${player.GuildName || 'Aucune'}\n` +
+                `**Alliance :** ${player.AllianceName || 'Aucune'}`
             )
             .setTimestamp();
 
-        await interaction.reply({ embeds: [embed] });
+        await interaction.editReply({ embeds: [embed] });
     }
 
     /**
@@ -129,7 +139,7 @@ export default class RegisterCommand extends BaseCommand {
         const selectMenu = new StringSelectMenuBuilder()
             .setCustomId('select-player')
             .setPlaceholder('Sélectionnez votre personnage')
-            .addOptions(options.slice(0, 25)); // Discord limite à 25 options
+            .addOptions(options.slice(0, 25));
 
         const row = new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(selectMenu);
 
@@ -157,7 +167,7 @@ export default class RegisterCommand extends BaseCommand {
         try {
             const collector = response.createMessageComponentCollector({
                 componentType: ComponentType.StringSelect,
-                time: 60_000, // 1 minute
+                time: 60_000,
             });
 
             collector.on('collect', async (selectInteraction) => {
@@ -182,7 +192,7 @@ export default class RegisterCommand extends BaseCommand {
                 }
 
                 await selectInteraction.deferUpdate();
-                await this.registerPlayer(interaction, selectedPlayer, true);
+                await this.handlePlayerRegistration(interaction, selectedPlayer);
             });
 
             collector.on('end', async (collected) => {
@@ -204,8 +214,7 @@ export default class RegisterCommand extends BaseCommand {
      */
     private async registerPlayer(
         interaction: ChatInputCommandInteraction,
-        player: AlbionPlayer,
-        fromSelection: boolean = false
+        player: AlbionPlayer
     ): Promise<void> {
         try {
             await this.tracerService.registerUser(interaction.user.id, player);
@@ -229,10 +238,13 @@ export default class RegisterCommand extends BaseCommand {
                 }
             }
 
-            // Embed public
-            const publicEmbed = new EmbedBuilder()
+            // Récupérer TOUS les personnages de l'utilisateur pour l'embed récapitulatif
+            const allCharacters = await this.tracerService.getRegisteredUsers(interaction.user.id);
+
+            // Embed principal : nouveau personnage
+            const mainEmbed = new EmbedBuilder()
                 .setColor('#51CF66')
-                .setTitle('✅ Nouvel enregistrement')
+                .setTitle('✅ Nouveau personnage enregistré')
                 .setDescription(
                     `**Discord :** <@${interaction.user.id}>\n` +
                     `**Albion :** ${player.Name}\n` +
@@ -242,38 +254,45 @@ export default class RegisterCommand extends BaseCommand {
                 )
                 .setTimestamp();
 
-            if (fromSelection) {
-                // Si on vient de la sélection, on update le message éphémère
-                await interaction.editReply({
-                    content: '✅ Enregistrement réussi ! Un message public a été envoyé.',
-                    embeds: [],
-                    components: [],
-                });
+            // Embed récapitulatif : tous les personnages
+            const summaryEmbed = new EmbedBuilder()
+                .setColor('#4A90E2')
+                .setTitle('📋 Personnages liés à ce compte')
+                .setDescription(
+                    allCharacters.length > 0
+                        ? allCharacters
+                            .map(
+                                (char, index) =>
+                                    `**${index + 1}.** ${char.albion_name} - ${this.albionService.formatFame(
+                                        char.kill_fame
+                                    )} Kill Fame`
+                            )
+                            .join('\n')
+                        : 'Aucun personnage enregistré.'
+                )
+                .setFooter({ text: `Total : ${allCharacters.length} personnage(s)` });
 
-                // ✅ CHANGEMENT : Envoyer le message public dans le canal
-                if (interaction.channel?.isSendable()) {
-                    await interaction.channel.send({ embeds: [publicEmbed] });
-                }
-            } else {
-                // Si pas de sélection (1 seul résultat), on met à jour l'éphémère
-                await interaction.editReply({
-                    content: '✅ Enregistrement réussi ! Un message public a été envoyé.',
-                    embeds: [],
-                });
+            // Message éphémère de confirmation
+            await interaction.editReply({
+                content: '✅ Enregistrement réussi ! Un message public a été envoyé.',
+                embeds: [],
+                components: [],
+            });
 
-                // ✅ CHANGEMENT : Envoyer le message public dans le canal
-                if (interaction.channel?.isSendable()) {
-                    await interaction.channel.send({ embeds: [publicEmbed] });
-                }
+            // Message public avec les 2 embeds
+            if (interaction.channel?.isSendable()) {
+                await interaction.channel.send({
+                    embeds: [mainEmbed, summaryEmbed]
+                });
             }
         } catch (error) {
             this.logger.error('Erreur lors de l\'enregistrement final', error);
 
-            const errorMessage = fromSelection
-                ? { content: '❌ Erreur lors de l\'enregistrement.', embeds: [], components: [] }
-                : { content: '❌ Erreur lors de l\'enregistrement.' };
-
-            await interaction.editReply(errorMessage);
+            await interaction.editReply({
+                content: '❌ Erreur lors de l\'enregistrement.',
+                embeds: [],
+                components: [],
+            });
         }
     }
 }
@@ -283,19 +302,14 @@ function buildGuildTag(guildName?: string | null): string {
         return '[]';
     }
 
-    // Supprimer TOUS les espaces
     const noSpaces = guildName.replace(/\s+/g, '');
-
-    // Extraire les majuscules A–Z
     const uppercaseLetters = noSpaces.match(/[A-Z]/g) ?? [];
 
     let tag: string;
 
     if (uppercaseLetters.length > 1) {
-        // Cas 3 : plusieurs majuscules
         tag = uppercaseLetters.slice(0, 5).join('');
     } else {
-        // Cas 2 : 0 ou 1 majuscule
         tag = noSpaces.slice(0, 5);
     }
 
