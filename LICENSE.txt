@@ -159,7 +159,7 @@ resulting from:
 
   b) Any unauthorized access to or use of the software
 
-  c) Any bugs, viruses, trojan horses, or the like
+  c) Any bugs, viruses, Trojan horses, or the like
 
   d) Any content obtained from the software
 
