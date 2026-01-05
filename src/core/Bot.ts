@@ -3,6 +3,7 @@ import { BaseCommand } from './BaseCommand';
 import { BaseEvent } from './BaseEvent';
 import { LoggerService } from '../shared/services/LoggerService';
 import { ServiceContainer } from '../shared/services/ServiceContainer';
+import { HealthMonitorService } from '../shared/services/HealthMonitorService';
 import fs from 'fs';
 import path from 'path';
 
@@ -14,10 +15,12 @@ export class Bot {
     public commands: Collection<string, BaseCommand>;
     private logger: LoggerService;
     private services: ServiceContainer;
+    private healthMonitor: HealthMonitorService;
 
     constructor() {
         this.logger = new LoggerService();
         this.services = ServiceContainer.getInstance();
+        this.healthMonitor = new HealthMonitorService();
 
         this.client = new Client({
             intents: [
@@ -33,7 +36,7 @@ export class Bot {
     }
 
     /**
-     * Démarre le bot : charge les commandes, les événements et se connecte à Discord
+     * Démarre le bot : charge les commandes, les événements et se connectent à Discord
      */
     public async start(): Promise<void> {
         this.logger.info('🚀 Démarrage du bot...');
@@ -44,6 +47,11 @@ export class Bot {
         await this.loadEvents();
         this.registerInteractionHandler();
         await this.client.login(process.env.DISCORD_TOKEN);
+
+        // Démarrer le health monitor après la connexion Discord
+        this.client.once(Events.ClientReady, () => {
+            this.healthMonitor.start(this.client);
+        });
     }
 
     /**
