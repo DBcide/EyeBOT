@@ -1,0 +1,252 @@
+EyeBOT LICENSE AGREEMENT
+=========================
+
+Copyright (c) 2024-2025 Olivier Français (DBcide)
+All rights reserved.
+
+Project: EyeBOT - Discord Bot for Albion Online
+Author: Olivier Français (DBcide)
+Contact: contact@dbcide.fr
+GitHub: https://github.com/DBcide
+
+
+LICENSE TERMS
+=============
+
+This software is made publicly available under the following terms:
+
+
+1. PERSONAL USE (FREE)
+----------------------
+
+You are permitted to use this software for PERSONAL, NON-COMMERCIAL purposes,
+subject to the following conditions:
+
+  a) You may download, install, and run the software for personal use.
+
+  b) You may study the source code for educational purposes.
+
+  c) You must retain all copyright notices and this license in any copies.
+
+  d) You must provide attribution to the original author (Olivier Français / DBcide)
+     in any derivative works or public instances of this software.
+
+
+2. COMMERCIAL USE (AUTHORIZATION REQUIRED)
+-------------------------------------------
+
+Commercial use of this software is PROHIBITED without prior written authorization
+from the author.
+
+"Commercial use" includes, but is not limited to:
+
+  a) Using the software to provide paid services
+
+  b) Incorporating the software into a commercial product
+
+  c) Using the software in a business environment
+
+  d) Monetizing servers or services that use this software
+
+  e) Selling access to features provided by this software
+
+To request authorization for commercial use, contact: contact@dbcide.fr
+
+
+3. MODIFICATION AND REDISTRIBUTION (AUTHORIZATION REQUIRED)
+------------------------------------------------------------
+
+Modification and redistribution of this software, in whole or in part, is
+PROHIBITED without prior written authorization from the author.
+
+This includes:
+
+  a) Creating derivative works based on this software
+
+  b) Distributing modified versions of the software
+
+  c) Publishing forks or adaptations on public repositories
+
+  d) Incorporating portions of this code into other projects
+
+  e) Redistributing the software under a different name or brand
+
+To request authorization for modification or redistribution, contact: contact@dbcide.fr
+
+
+4. ATTRIBUTION REQUIREMENT
+---------------------------
+
+Any permitted use of this software MUST include clear attribution to the original
+author in the following manner:
+
+  a) Include this LICENSE.txt file with any distribution
+
+  b) Display the following notice in any user-facing interface or documentation:
+
+     "Powered by EyeBOT - Created by Olivier Français (DBcide)
+      https://github.com/DBcide/EyeBOT"
+
+  c) Retain all copyright notices in the source code
+
+  d) Credit the original author in any derived documentation
+
+
+5. RESTRICTIONS
+---------------
+
+The following actions are PROHIBITED under all circumstances:
+
+  a) Removing or altering copyright notices or license information
+
+  b) Claiming this work as your own
+
+  c) Using the author's name or trademarks to endorse derived works without permission
+
+  d) Reverse engineering, decompiling, or disassembling the compiled software
+     (except as permitted by applicable law)
+
+  e) Using the software for any illegal purpose
+
+  f) Using the software in a way that violates Discord's Terms of Service
+
+
+6. INTELLECTUAL PROPERTY
+-------------------------
+
+All intellectual property rights in and to the software, including but not limited
+to copyrights, trademarks, and trade secrets, remain the exclusive property of
+Olivier Français (DBcide).
+
+
+7. THIRD-PARTY COMPONENTS
+--------------------------
+
+This software uses the following third-party libraries, each subject to their
+own licenses:
+
+  - discord.js (Apache License 2.0)
+  - MySQL2 (MIT License)
+  - TypeScript (Apache License 2.0)
+  - Node.js (MIT License)
+
+Users must comply with the licenses of all third-party components.
+
+
+8. NO WARRANTY
+--------------
+
+THIS SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE, AND NONINFRINGEMENT.
+
+IN NO EVENT SHALL THE AUTHOR OR COPYRIGHT HOLDER BE LIABLE FOR ANY CLAIM,
+DAMAGES, OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT, OR
+OTHERWISE, ARISING FROM, OUT OF, OR IN CONNECTION WITH THE SOFTWARE OR THE
+USE OR OTHER DEALINGS IN THE SOFTWARE.
+
+
+9. LIMITATION OF LIABILITY
+---------------------------
+
+To the maximum extent permitted by applicable law, in no event will the author
+be liable for any indirect, incidental, special, consequential, or punitive
+damages, or any loss of profits or revenues, whether incurred directly or
+indirectly, or any loss of data, use, goodwill, or other intangible losses
+resulting from:
+
+  a) Your use or inability to use the software
+
+  b) Any unauthorized access to or use of the software
+
+  c) Any bugs, viruses, trojan horses, or the like
+
+  d) Any content obtained from the software
+
+
+10. UPDATES AND MODIFICATIONS TO LICENSE
+-----------------------------------------
+
+The author reserves the right to update or modify this license at any time.
+Continued use of the software after changes constitutes acceptance of the
+revised license terms.
+
+
+11. TERMINATION
+---------------
+
+This license is effective until terminated. Your rights under this license will
+terminate automatically without notice if you fail to comply with any of its terms.
+
+Upon termination, you must:
+
+  a) Cease all use of the software
+
+  b) Delete all copies of the software in your possession
+
+  c) Destroy any derivative works created
+
+
+12. GOVERNING LAW
+-----------------
+
+This license shall be governed by and construed in accordance with the laws of
+France, without regard to its conflict of law provisions.
+
+Any legal action or proceeding arising under this license will be brought
+exclusively in the courts located in France.
+
+
+13. SEVERABILITY
+----------------
+
+If any provision of this license is held to be unenforceable or invalid, such
+provision will be changed and interpreted to accomplish the objectives of such
+provision to the greatest extent possible under applicable law, and the remaining
+provisions will continue in full force and effect.
+
+
+14. CONTACT INFORMATION
+-----------------------
+
+For questions, authorization requests, or other inquiries regarding this license:
+
+  Email: contact@dbcide.fr
+  GitHub: https://github.com/DBcide
+  Project: https://github.com/DBcide/EyeBOT
+
+
+15. ACKNOWLEDGMENT
+------------------
+
+By using this software, you acknowledge that you have read this license,
+understand it, and agree to be bound by its terms and conditions.
+
+
+================================================================================
+
+SUMMARY FOR QUICK REFERENCE:
+-----------------------------
+
+✅ ALLOWED (Free):
+  - Personal, non-commercial use
+  - Educational study of the code
+  - Running the bot on your personal Discord server
+
+❌ REQUIRES AUTHORIZATION:
+  - Commercial use of any kind
+  - Modification or redistribution
+  - Creating derivative works
+  - Public forks or adaptations
+
+📧 Contact: contact@dbcide.fr for any authorization requests
+
+⚠️  MANDATORY:
+  - Attribution to original author (Olivier Français / DBcide)
+  - Retention of copyright notices
+  - Compliance with Discord Terms of Service
+
+================================================================================
+
+Last Updated: January 5, 2025
+Version: 1.0
