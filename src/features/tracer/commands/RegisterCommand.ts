@@ -328,15 +328,24 @@ export default class RegisterCommand extends BaseCommand {
 
             // Message éphémère de confirmation
             await interaction.editReply({
-                content: '✅ Enregistrement réussi ! Un message public a été envoyé.',
+                content: '✅ Enregistrement réussi ! Un message public a été envoyé et les instructions de vérification vous ont été envoyées en MP.',
                 embeds: [],
                 components: [],
             });
 
-            // Message public avec les 3 embeds
+            // Envoyer l'embed de vérification en MP
+            try {
+                await interaction.user.send({
+                    embeds: [verificationEmbed]
+                });
+            } catch (error) {
+                this.logger.warn(`Impossible d'envoyer le MP de vérification à ${interaction.user.tag} ${error}`);
+            }
+
+            // Message public avec 2 embeds (sans verificationEmbed)
             if (interaction.channel?.isSendable()) {
                 await interaction.channel.send({
-                    embeds: [mainEmbed, verificationEmbed, summaryEmbed]
+                    embeds: [mainEmbed, summaryEmbed]
                 });
             }
         } catch (error) {
@@ -421,15 +430,24 @@ export default class RegisterCommand extends BaseCommand {
 
             // Message éphémère de confirmation
             await interaction.editReply({
-                content: '⚠️ Personnage enregistré avec avertissement. Vérifiez-le pour le sécuriser !',
+                content: '⚠️ Personnage enregistré avec avertissement. Vérifiez-le pour le sécuriser ! Les instructions vous ont été envoyées en MP.',
                 embeds: [],
                 components: [],
             });
 
-            // Message public avec les 3 embeds
+            // Envoyer l'embed de vérification en MP
+            try {
+                await interaction.user.send({
+                    embeds: [verificationEmbed]
+                });
+            } catch (error) {
+                this.logger.warn(`Impossible d'envoyer le MP de vérification à ${interaction.user.tag} ${error}`);
+            }
+
+            // Message public avec 2 embeds (sans verificationEmbed)
             if (interaction.channel?.isSendable()) {
                 await interaction.channel.send({
-                    embeds: [mainEmbed, verificationEmbed, summaryEmbed]
+                    embeds: [mainEmbed, summaryEmbed]
                 });
             }
         } catch (error) {
