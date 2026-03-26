@@ -170,12 +170,42 @@ export class Bot {
                 return;
             }
 
+            // Préparer les données pour le log
+            const commandOptions: Record<string, any> = {};
+            interaction.options.data.forEach(option => {
+                commandOptions[option.name] = option.value;
+            });
+
+            const startTime = Date.now();
+
             try {
                 // Exécuter la commande
                 this.logger.debug(`Exécution de /${interaction.commandName} par ${interaction.user.tag}`);
                 await command.execute(interaction);
-            } catch (error) {
+
+                // Log de succès
+                await this.services.dbLogger.logCommand({
+                    userId: interaction.user.id,
+                    guildId: interaction.guildId,
+                    commandName: interaction.commandName,
+                    commandOptions,
+                    status: 'success',
+                });
+
+                const duration = Date.now() - startTime;
+                this.logger.debug(`✅ Commande /${interaction.commandName} terminée en ${duration}ms`);
+            } catch (error: any) {
                 this.logger.error(`Erreur lors de l'exécution de /${interaction.commandName}`, error);
+
+                // Log d'erreur
+                await this.services.dbLogger.logCommand({
+                    userId: interaction.user.id,
+                    guildId: interaction.guildId,
+                    commandName: interaction.commandName,
+                    commandOptions,
+                    status: 'error',
+                    errorMessage: error?.message || String(error),
+                });
 
                 // Répondre à l'utilisateur en cas d'erreur
                 const errorMessage = { content: '❌ Une erreur est survenue lors de l\'exécution de cette commande.', ephemeral: true };
