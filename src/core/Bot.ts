@@ -196,4 +196,31 @@ export class Bot {
     public async loadCommandsOnly(): Promise<void> {
         await this.loadCommands();
     }
+
+    /**
+     * Arrête proprement le bot (déconnexion Discord, arrêt monitoring, fermeture DB)
+     */
+    public async shutdown(reason: string): Promise<void> {
+        this.logger.warn(`🛑 Arrêt du bot: ${reason}`);
+
+        try {
+            // Arrêter le health monitor
+            this.healthMonitor.stop();
+            this.logger.info('✅ Health Monitor arrêté');
+
+            // Déconnecter Discord
+            if (this.client.isReady()) {
+                await this.client.destroy();
+                this.logger.info('✅ Déconnexion Discord réussie');
+            }
+
+            // Fermer la connexion à la base de données
+            await this.services.database.close();
+            this.logger.info('✅ Connexion DB fermée');
+
+            this.logger.success('✅ Arrêt propre du bot terminé');
+        } catch (error) {
+            this.logger.error('❌ Erreur lors de l\'arrêt du bot', error);
+        }
+    }
 }

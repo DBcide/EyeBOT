@@ -122,6 +122,7 @@ DB_PORT=<mysql-port>  # Optional, defaults to 3306
 HEALTH_MONITOR_INTERVAL_MS=10000      # Metrics collection interval (default: 10 seconds)
 HEARTBEAT_INTERVAL_MS=60000           # Heartbeat send interval (default: 60 seconds)
 HEARTBEAT_URL=<url-to-send-heartbeat> # Optional: URL to POST heartbeat data
+MAX_MEMORY_MB=1024                    # Max memory limit in MB (default: 1024, must match ecosystem.config.js)
 ```
 
 ## Key Patterns

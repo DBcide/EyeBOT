@@ -52,6 +52,7 @@ export class HealthMonitorService {
     private readonly MONITOR_INTERVAL_MS: number;
     private readonly HEARTBEAT_INTERVAL_MS: number;
     private readonly HEARTBEAT_URL?: string;
+    private readonly MAX_MEMORY_MB: number;
 
     // Métriques de démarrage pour calculer les deltas
     private startTime: Date;
@@ -60,6 +61,10 @@ export class HealthMonitorService {
     // Historique des métriques (dernières 10 minutes)
     private metricsHistory: SystemMetrics[] = [];
     private readonly MAX_HISTORY_SIZE = 60; // 60 entrées * 10 secondes = 10 minutes
+
+    // Heartbeat retry configuration
+    private readonly MAX_HEARTBEAT_RETRIES = 3;
+    private readonly HEARTBEAT_RETRY_BASE_DELAY_MS = 1000; // 1 seconde de base
 
     constructor() {
         this.logger = new LoggerService();
@@ -70,6 +75,7 @@ export class HealthMonitorService {
         this.MONITOR_INTERVAL_MS = Number(process.env.HEALTH_MONITOR_INTERVAL_MS) || 10000; // 10 secondes par défaut
         this.HEARTBEAT_INTERVAL_MS = Number(process.env.HEARTBEAT_INTERVAL_MS) || 60000; // 1 minute par défaut
         this.HEARTBEAT_URL = process.env.HEARTBEAT_URL;
+        this.MAX_MEMORY_MB = Number(process.env.MAX_MEMORY_MB) || 1024; // 1 Go par défaut (valeur de ecosystem.config.js)
     }
 
     /**
@@ -256,14 +262,20 @@ export class HealthMonitorService {
      * Log les métriques de manière lisible
      */
     private logMetrics(systemMetrics: SystemMetrics, discordMetrics: DiscordMetrics | null): void {
-        const memoryPercentage = systemMetrics.memory.percentage.toFixed(2);
+        const systemMemoryPercentage = systemMetrics.memory.percentage.toFixed(2);
         const cpuUsage = systemMetrics.cpu.usage.toFixed(2);
         const processUptime = this.formatUptime(systemMetrics.process.uptime);
         const heapUsed = this.formatBytes(systemMetrics.memory.heapUsed);
         const heapTotal = this.formatBytes(systemMetrics.memory.heapTotal);
 
-        // Log condensé
-        let metricsLog = `📊 Health | CPU: ${cpuUsage}% | RAM: ${memoryPercentage}% | Heap: ${heapUsed}/${heapTotal} | Uptime: ${processUptime}`;
+        // Calculer la RSS (Resident Set Size) - mémoire réelle utilisée par le processus
+        const rssBytes = systemMetrics.process.memoryUsage.rss;
+        const rssUsed = this.formatBytes(rssBytes);
+        const maxMemoryBytes = this.MAX_MEMORY_MB * 1024 * 1024;
+        const rssPercentage = ((rssBytes / maxMemoryBytes) * 100).toFixed(2);
+
+        // Log condensé avec mémoire système en DEBUG
+        let metricsLog = `📊 Health | CPU: ${cpuUsage}% | Process RSS: ${rssPercentage}% (${rssUsed}/${this.MAX_MEMORY_MB}MB) | Heap: ${heapUsed}/${heapTotal} | Server RAM: ${systemMemoryPercentage}% | Uptime: ${processUptime}`;
 
         if (discordMetrics) {
             metricsLog += ` | Guilds: ${discordMetrics.guilds} | Users: ${discordMetrics.users} | Ping: ${discordMetrics.websocketPing}ms`;
@@ -271,62 +283,91 @@ export class HealthMonitorService {
 
         this.logger.debug(metricsLog);
 
-        // Alertes si utilisation excessive
+        // Alertes sur la mémoire du PROCESSUS par rapport à la limite configurée
+        const rssPercentageNum = (rssBytes / maxMemoryBytes) * 100;
+        if (rssPercentageNum > 80) {
+            this.logger.warn(`⚠️  Mémoire processus élevée: ${rssPercentage}% (${rssUsed}/${this.MAX_MEMORY_MB}MB) - Risque de redémarrage PM2!`);
+        }
+
+        // Log la mémoire système en DEBUG si élevée (information, pas une alerte critique)
         if (systemMetrics.memory.percentage > 80) {
-            this.logger.warn(`⚠️  Utilisation mémoire élevée: ${memoryPercentage}%`);
+            this.logger.debug(`ℹ️  Mémoire serveur élevée (mutualisé): ${systemMemoryPercentage}%`);
         }
 
         if (systemMetrics.cpu.usage > 80) {
-            this.logger.warn(`⚠️  Utilisation CPU élevée: ${cpuUsage}%`);
+            this.logger.warn(`⚠️  Utilisation CPU du processus élevée: ${cpuUsage}%`);
         }
     }
 
     /**
-     * Envoie un heartbeat HTTP pour garder le processus actif
+     * Envoie un heartbeat HTTP pour garder le processus actif (avec retry et backoff exponentiel)
      */
     private async sendHeartbeat(): Promise<void> {
         if (!this.HEARTBEAT_URL) return;
 
-        try {
-            const metrics = this.getSystemMetrics();
-            const discordMetrics = this.getDiscordMetrics();
+        for (let attempt = 0; attempt < this.MAX_HEARTBEAT_RETRIES; attempt++) {
+            try {
+                const metrics = this.getSystemMetrics();
+                const discordMetrics = this.getDiscordMetrics();
 
-            const payload = {
-                timestamp: new Date().toISOString(),
-                status: 'healthy',
-                uptime: metrics.process.uptime,
-                memory: {
-                    percentage: metrics.memory.percentage.toFixed(2),
-                    used: this.formatBytes(metrics.memory.used),
-                },
-                cpu: {
-                    usage: metrics.cpu.usage.toFixed(2),
-                },
-                discord: discordMetrics ? {
-                    guilds: discordMetrics.guilds,
-                    users: discordMetrics.users,
-                    ping: discordMetrics.websocketPing,
-                    status: discordMetrics.status,
-                } : null,
-            };
+                const rssBytes = metrics.process.memoryUsage.rss;
+                const maxMemoryBytes = this.MAX_MEMORY_MB * 1024 * 1024;
+                const rssPercentage = ((rssBytes / maxMemoryBytes) * 100).toFixed(2);
 
-            const response = await fetch(this.HEARTBEAT_URL, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'User-Agent': 'EyeBOT-HealthMonitor/1.0',
-                },
-                body: JSON.stringify(payload),
-            });
+                const payload = {
+                    timestamp: new Date().toISOString(),
+                    status: 'healthy',
+                    uptime: metrics.process.uptime,
+                    memory: {
+                        systemPercentage: metrics.memory.percentage.toFixed(2),
+                        processHeapUsed: this.formatBytes(metrics.memory.heapUsed),
+                        processHeapTotal: this.formatBytes(metrics.memory.heapTotal),
+                        processRSS: this.formatBytes(rssBytes),
+                        processRSSPercentage: rssPercentage,
+                        maxMemoryMB: this.MAX_MEMORY_MB,
+                    },
+                    cpu: {
+                        usage: metrics.cpu.usage.toFixed(2),
+                    },
+                    discord: discordMetrics ? {
+                        guilds: discordMetrics.guilds,
+                        users: discordMetrics.users,
+                        ping: discordMetrics.websocketPing,
+                        status: discordMetrics.status,
+                    } : null,
+                };
 
-            if (!response.ok) {
-                this.logger.warn(`⚠️  Heartbeat failed: ${response.status} ${response.statusText}`);
-            } else {
-                this.logger.debug(`💓 Heartbeat envoyé avec succès`);
+                const response = await fetch(this.HEARTBEAT_URL, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'User-Agent': 'EyeBOT-HealthMonitor/1.0',
+                    },
+                    body: JSON.stringify(payload),
+                });
+
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+
+                this.logger.debug(`💓 Heartbeat envoyé avec succès (tentative ${attempt + 1}/${this.MAX_HEARTBEAT_RETRIES})`);
+                return; // Succès, on sort
+
+            } catch (error: any) {
+                const isLastAttempt = attempt === this.MAX_HEARTBEAT_RETRIES - 1;
+
+                if (isLastAttempt) {
+                    // Dernier essai échoué, on log l'erreur
+                    this.logger.error(`❌ Heartbeat échoué après ${this.MAX_HEARTBEAT_RETRIES} tentatives`, error);
+                } else {
+                    // On va réessayer, log en debug
+                    const delay = this.HEARTBEAT_RETRY_BASE_DELAY_MS * Math.pow(2, attempt);
+                    this.logger.debug(`⚠️  Heartbeat échoué (tentative ${attempt + 1}/${this.MAX_HEARTBEAT_RETRIES}), retry dans ${delay}ms...`);
+
+                    // Attendre avant de réessayer (backoff exponentiel: 1s, 2s, 4s)
+                    await new Promise(resolve => setTimeout(resolve, delay));
+                }
             }
-
-        } catch (error: any) {
-            this.logger.error('Erreur lors de l\'envoi du heartbeat', error);
         }
     }
 
