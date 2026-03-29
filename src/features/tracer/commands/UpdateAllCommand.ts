@@ -14,6 +14,43 @@ import { ServiceContainer } from '../../../shared/services/ServiceContainer';
 import { TracerUser } from '../models/AlbionTypes';
 import { updateMemberNickname } from '../utils/DiscordUtils';
 
+/**
+ * Commande /updateall pour mettre à jour tous les membres d'un serveur en masse
+ *
+ * @remarks
+ * Commande administrative réservée aux membres ayant la permission "Gérer les pseudonymes".
+ *
+ * Fonctionnalités:
+ * - Récupère tous les membres du serveur Discord
+ * - Filtre ceux qui ont un personnage Albion enregistré
+ * - Met à jour leurs informations depuis l'API Albion
+ * - Met à jour automatiquement leurs pseudonymes Discord
+ * - Affiche une progression en temps réel
+ * - Génère un rapport détaillé (réussites, échecs, ignorés)
+ *
+ * Optimisations pour éviter le rate limiting:
+ * - **Batch processing**: Traite 5 membres en parallèle maximum
+ * - **Délai entre batches**: 1 seconde de pause entre chaque groupe
+ * - **Timeout API**: 10 secondes par requête Albion
+ *
+ * Cas d'usage:
+ * - Après un changement de format de pseudonyme
+ * - Après une migration de données
+ * - Pour rafraîchir les infos de tous les membres en une fois
+ * - Maintenance régulière du serveur
+ *
+ * Priorisation des personnages:
+ * - Si l'utilisateur a plusieurs personnages, utilise celui marqué is_main = 1
+ * - Sinon, utilise le premier personnage enregistré
+ *
+ * Flux d'exécution:
+ * 1. Vérification des permissions (ManageNicknames requise)
+ * 2. Récupération de tous les membres du serveur
+ * 3. Récupération de tous les utilisateurs enregistrés en DB
+ * 4. Filtrage des membres avec personnages enregistrés
+ * 5. Traitement par batch avec progression affichée
+ * 6. Rapport final avec statistiques détaillées
+ */
 export default class UpdateAllCommand extends BaseCommand {
     public name = 'updateall';
     public description = 'Met à jour les pseudonymes de tous les membres enregistrés sur le serveur';
@@ -22,10 +59,22 @@ export default class UpdateAllCommand extends BaseCommand {
     private tracerService: TracerService;
     private readonly logger: LoggerService;
 
-    // Configuration pour optimiser les requêtes API
-    private readonly BATCH_SIZE = 5; // Nombre de requêtes simultanées
-    private readonly DELAY_BETWEEN_BATCHES_MS = 1000; // Délai entre chaque batch (1 seconde)
+    private readonly BATCH_SIZE = 5;
+    private readonly DELAY_BETWEEN_BATCHES_MS = 1000;
 
+    /**
+     * Crée une instance de la commande /updateall
+     *
+     * @remarks
+     * Initialise les services nécessaires:
+     * - LoggerService: Depuis ServiceContainer (partagé)
+     * - AlbionService: Instance locale pour les appels API
+     * - TracerService: Instance locale pour les opérations DB
+     *
+     * Configuration du batch processing:
+     * - BATCH_SIZE = 5: Maximum 5 requêtes API simultanées
+     * - DELAY_BETWEEN_BATCHES_MS = 1000: Pause de 1s entre chaque groupe
+     */
     constructor() {
         super();
         const services = ServiceContainer.getInstance();
@@ -34,6 +83,17 @@ export default class UpdateAllCommand extends BaseCommand {
         this.tracerService = new TracerService();
     }
 
+    /**
+     * Construit la définition de la commande slash pour l'API Discord
+     *
+     * @returns SlashCommandBuilder configuré avec permissions administratives
+     *
+     * @remarks
+     * Configuration:
+     * - Aucune option requise
+     * - Permission par défaut: ManageNicknames (Gérer les pseudonymes)
+     * - Les utilisateurs sans cette permission ne voient pas la commande dans Discord
+     */
     public buildCommand(): SlashCommandBuilder {
         return new SlashCommandBuilder()
             .setName(this.name)
@@ -41,8 +101,47 @@ export default class UpdateAllCommand extends BaseCommand {
             .setDefaultMemberPermissions(PermissionFlagsBits.ManageNicknames) as SlashCommandBuilder;
     }
 
+    /**
+     * Exécute la commande /updateall
+     *
+     * @param interaction - L'interaction Discord de la commande slash
+     * @returns Promise qui se résout après mise à jour de tous les membres
+     *
+     * @remarks
+     * Séquence d'exécution complète:
+     *
+     * **1. Vérifications préalables**
+     * - Vérifie ManageNicknames permission (double-check côté serveur)
+     * - Vérifie que la commande est lancée dans un serveur (pas en MP)
+     *
+     * **2. Récupération des données (Étapes 1-3)**
+     * - Fetch tous les membres du serveur (peut prendre du temps pour les gros serveurs)
+     * - Récupère tous les utilisateurs enregistrés en base de données
+     * - Croise les données pour identifier les membres à mettre à jour
+     * - Filtre les bots automatiquement
+     * - Priorise les personnages "main" (is_main = 1)
+     *
+     * **3. Affichage progression initiale (Étape 4)**
+     * - Embed bleu avec compteur 0/N
+     * - Informe l'utilisateur de patienter
+     *
+     * **4. Traitement par batch (Étape 5)**
+     * - Appelle processBatchUpdates() avec configuration:
+     *   - 5 membres en parallèle max
+     *   - 1 seconde de pause entre batches
+     * - Met à jour l'embed de progression après chaque batch
+     * - Collecte les statistiques (success, failures, skipped)
+     *
+     * **5. Rapport final (Étape 6)**
+     * - Embed vert (si tout OK) ou orange (si échecs)
+     * - Statistiques complètes
+     * - Liste des 10 premiers échecs si applicable
+     *
+     * Gestion des erreurs:
+     * - Erreurs individuelles: Capturées par Promise.allSettled dans processBatchUpdates()
+     * - Erreur critique (catch global): Message d'erreur + log pour investigation
+     */
     public async execute(interaction: ChatInputCommandInteraction): Promise<void> {
-        // Vérifier les permissions
         if (!interaction.memberPermissions?.has(PermissionFlagsBits.ManageNicknames)) {
             await interaction.reply({
                 content: '❌ Vous n\'avez pas la permission de gérer les pseudonymes.',
@@ -64,26 +163,20 @@ export default class UpdateAllCommand extends BaseCommand {
         try {
             this.logger.info(`UpdateAll lancé par ${interaction.user.tag} sur ${interaction.guild.name}`);
 
-            // Étape 1 : Récupérer tous les membres du serveur
             const members = await interaction.guild.members.fetch();
             this.logger.debug(`${members.size} membres trouvés sur le serveur`);
 
-            // Étape 2 : Récupérer tous les utilisateurs enregistrés dans la base de données
             const registeredUsers = await this.getAllRegisteredUsers();
             this.logger.debug(`${registeredUsers.length} utilisateurs enregistrés dans la base`);
 
-            // Étape 3 : Filtrer les membres qui ont un compte enregistré
             const membersToUpdate: { member: GuildMember; dbUser: TracerUser }[] = [];
 
             for (const [_, member] of members) {
-                // Ignorer les bots
                 if (member.user.bot) continue;
 
-                // Chercher si ce membre a un compte enregistré
                 const userCharacters = registeredUsers.filter(u => u.discord_id === member.id);
 
                 if (userCharacters.length > 0) {
-                    // Prendre le personnage principal si défini, sinon le premier
                     const mainCharacter = userCharacters.find(u => u.is_main === 1) || userCharacters[0];
                     membersToUpdate.push({ member, dbUser: mainCharacter });
                 }
@@ -96,7 +189,6 @@ export default class UpdateAllCommand extends BaseCommand {
                 return;
             }
 
-            // Étape 4 : Afficher un message initial de progression
             const initialEmbed = new EmbedBuilder()
                 .setColor('#4A90E2')
                 .setTitle('🔄 Mise à jour en cours...')
@@ -109,16 +201,14 @@ export default class UpdateAllCommand extends BaseCommand {
 
             await interaction.editReply({ embeds: [initialEmbed] });
 
-            // Étape 5 : Traiter les mises à jour par batch
             const results = await this.processBatchUpdates(membersToUpdate, interaction);
 
-            // Étape 6 : Afficher le résumé final
             await this.displayFinalSummary(interaction, results);
 
             this.logger.success(`UpdateAll terminé : ${results.success} réussites, ${results.failures} échecs`);
 
         } catch (error) {
-            this.logger.error('Erreur lors de l\'UpdateAll', error);
+            this.logger.error('Erreur lors de l\'UpdateAll', 'tracer', error);
             await interaction.editReply({
                 content: '❌ Une erreur critique est survenue lors de la mise à jour. Consultez les logs.',
             });
@@ -127,6 +217,19 @@ export default class UpdateAllCommand extends BaseCommand {
 
     /**
      * Récupère tous les utilisateurs enregistrés dans la base de données
+     *
+     * @returns Promise contenant tous les personnages enregistrés, triés par discord_id puis is_main
+     *
+     * @remarks
+     * Requête SQL:
+     * ```sql
+     * SELECT * FROM tracer_users ORDER BY discord_id, is_main DESC
+     * ```
+     *
+     * Tri:
+     * - Les personnages sont groupés par discord_id
+     * - Pour chaque utilisateur, les personnages "main" (is_main = 1) apparaissent en premier
+     * - Facilite la sélection du personnage prioritaire dans execute()
      */
     private async getAllRegisteredUsers(): Promise<TracerUser[]> {
         const db = ServiceContainer.getInstance().database;
@@ -134,7 +237,38 @@ export default class UpdateAllCommand extends BaseCommand {
     }
 
     /**
-     * Traite les mises à jour par batch pour éviter de surcharger l'API
+     * Traite les mises à jour par batch pour éviter de surcharger l'API Albion
+     *
+     * @param membersToUpdate - Liste des membres à mettre à jour avec leurs personnages
+     * @param interaction - L'interaction Discord pour mettre à jour la progression
+     * @returns Promise avec statistiques détaillées (success, failures, skipped, details)
+     *
+     * @remarks
+     * Stratégie de batch processing:
+     *
+     * **Configuration**:
+     * - BATCH_SIZE = 5: Maximum 5 requêtes API Albion simultanées
+     * - DELAY_BETWEEN_BATCHES_MS = 1000ms: Pause de 1 seconde entre chaque groupe
+     *
+     * **Traitement**:
+     * 1. Divise la liste en groupes de 5 membres
+     * 2. Traite chaque groupe avec Promise.allSettled (ne bloque pas si une échoue)
+     * 3. Analyse les résultats:
+     *    - fulfilled + value.success = true → successCount++
+     *    - fulfilled + value.success = false → skippedCount++ (personnage 404)
+     *    - rejected → failureCount++ + ajout dans failureDetails[]
+     * 4. Met à jour l'embed de progression après chaque batch
+     * 5. Pause de 1s avant le batch suivant (sauf dernier batch)
+     *
+     * **Gestion des erreurs**:
+     * - Les erreurs individuelles n'arrêtent pas le traitement global
+     * - Chaque erreur est capturée avec le nom du membre et le message d'erreur
+     * - Les erreurs sont affichées dans le rapport final (max 10)
+     *
+     * **Raisons de "skipped"**:
+     * - Personnage supprimé du jeu (404 sur l'API Albion)
+     * - Personnage transféré à un autre serveur
+     * - ID Albion invalide en base de données
      */
     private async processBatchUpdates(
         membersToUpdate: { member: GuildMember; dbUser: TracerUser }[],
@@ -206,7 +340,33 @@ export default class UpdateAllCommand extends BaseCommand {
     }
 
     /**
-     * Met à jour un seul membre
+     * Met à jour les informations d'un seul membre du serveur
+     *
+     * @param member - Le membre Discord à mettre à jour
+     * @param dbUser - Le personnage Albion enregistré en base de données
+     * @returns Promise avec { success: true } si réussi, { success: false, skipped: true } si personnage 404
+     * @throws {Error} Si erreur lors de la mise à jour (API timeout, DB error, etc.)
+     *
+     * @remarks
+     * Séquence de mise à jour (identique à UpdateCommand):
+     *
+     * 1. **Appel API Albion**
+     *    - getPlayerDetailsById() avec l'albion_id du personnage
+     *    - Retourne null si personnage 404 → success=false, skipped=true
+     *
+     * 2. **Mise à jour base de données**
+     *    - updateUserFromApi() met à jour les champs:
+     *      - albion_name, kill_fame, death_fame, guild_name, alliance_name, updated_at
+     *
+     * 3. **Mise à jour nickname Discord**
+     *    - updateMemberNickname() change le pseudo du membre
+     *    - Format: "Pseudo [TAG]" si guilde, "Pseudo" sinon
+     *    - Silencieusement ignoré si permissions insuffisantes
+     *
+     * **Gestion des cas spéciaux**:
+     * - Personnage 404: Log warning + retourne { success: false, skipped: true }
+     * - Timeout API: Lève une erreur (capturée par Promise.allSettled dans processBatchUpdates)
+     * - Rate limit (429): Lève une erreur (capturée par Promise.allSettled)
      */
     private async updateSingleMember(
         member: GuildMember,
@@ -237,13 +397,38 @@ export default class UpdateAllCommand extends BaseCommand {
 
             return { success: true };
         } catch (error: any) {
-            this.logger.error(`Erreur lors de la mise à jour de ${member.user.tag}`, error);
+            this.logger.error(`Erreur lors de la mise à jour de ${member.user.tag}`, 'tracer', error);
             throw error;
         }
     }
 
     /**
-     * Affiche le résumé final de la mise à jour
+     * Affiche l'embed de résumé final après traitement de tous les membres
+     *
+     * @param interaction - L'interaction Discord
+     * @param results - Statistiques complètes du traitement
+     * @returns Promise qui se résout après affichage de l'embed
+     *
+     * @remarks
+     * Construit un embed récapitulatif avec:
+     *
+     * **Couleur dynamique**:
+     * - Vert (#51CF66) si aucun échec
+     * - Orange (#F39C12) si au moins un échec
+     *
+     * **Statistiques affichées**:
+     * - Total de membres traités
+     * - ✅ Réussies: Nombre de mises à jour réussies
+     * - ⏭️ Ignorés: Personnages 404 (non trouvés sur l'API)
+     * - ❌ Échecs: Erreurs lors du traitement (timeout, rate limit, etc.)
+     *
+     * **Détails des échecs** (champ optionnel):
+     * - Affiche les 10 premiers échecs
+     * - Format: "N. DiscordTag (AlbionName): Message d'erreur"
+     * - Si plus de 10 échecs: "... et X autres" à la fin
+     * - Le champ n'est pas affiché si aucun échec
+     *
+     * Cet embed remplace l'embed de progression affiché pendant le traitement.
      */
     private async displayFinalSummary(
         interaction: ChatInputCommandInteraction,
@@ -280,7 +465,19 @@ export default class UpdateAllCommand extends BaseCommand {
     }
 
     /**
-     * Délai asynchrone
+     * Crée un délai asynchrone pour espacer les batches de requêtes
+     *
+     * @param ms - Durée du délai en millisecondes
+     * @returns Promise qui se résout après le délai spécifié
+     *
+     * @remarks
+     * Utilisé entre chaque batch pour éviter le rate limiting de l'API Albion.
+     * Implémentation standard avec setTimeout dans une Promise.
+     *
+     * @example
+     * ```typescript
+     * await this.delay(1000); // Pause de 1 seconde
+     * ```
      */
     private delay(ms: number): Promise<void> {
         return new Promise(resolve => setTimeout(resolve, ms));

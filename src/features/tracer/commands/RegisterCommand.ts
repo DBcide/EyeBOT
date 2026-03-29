@@ -24,6 +24,33 @@ import {
     buildRegistrationWithWarningEmbed
 } from '../utils/EmbedBuilders';
 
+/**
+ * Commande /register pour enregistrer un personnage Albion Online à un compte Discord
+ *
+ * @remarks
+ * Fonctionnalités:
+ * - Recherche d'un personnage Albion par pseudo (API publique Albion)
+ * - Menu de sélection si plusieurs résultats
+ * - Vérification des conflits (personnage déjà vérifié par quelqu'un d'autre)
+ * - Support des multi-claims (plusieurs utilisateurs peuvent revendiquer le même personnage non vérifié)
+ * - Mise à jour automatique du pseudo Discord sur le serveur
+ * - Embed récapitulatif avec tous les personnages de l'utilisateur
+ * - Instructions de vérification envoyées en MP
+ *
+ * Flux d'enregistrement:
+ * 1. Recherche du personnage via l'API Albion
+ * 2. Menu de sélection si plusieurs résultats (max 25, timeout 60s)
+ * 3. Vérifications:
+ *    - Personnage vérifié par quelqu'un d'autre ? → REFUS
+ *    - Utilisateur a déjà ce personnage ? → Affiche le statut existant
+ *    - Autres claims non vérifiés existent ? → Enregistrement avec avertissement
+ *    - Sinon → Enregistrement normal
+ * 4. Mise à jour du nickname Discord (format: Pseudo [TAG])
+ * 5. Messages:
+ *    - Éphémère: Confirmation rapide
+ *    - MP: Instructions de vérification détaillées
+ *    - Public: Embed d'enregistrement + récapitulatif des personnages
+ */
 export default class RegisterCommand extends BaseCommand {
     public name = 'register';
     public description = 'Enregistrer votre compte Albion Online';
@@ -32,6 +59,15 @@ export default class RegisterCommand extends BaseCommand {
     private tracerService: TracerService;
     private readonly logger: LoggerService;
 
+    /**
+     * Crée une instance de la commande /register
+     *
+     * @remarks
+     * Initialise les services nécessaires:
+     * - LoggerService: Depuis ServiceContainer (partagé)
+     * - AlbionService: Instance locale pour les appels API
+     * - TracerService: Instance locale pour les opérations DB
+     */
     constructor() {
         super();
         const services = ServiceContainer.getInstance();
@@ -40,6 +76,15 @@ export default class RegisterCommand extends BaseCommand {
         this.tracerService = new TracerService();
     }
 
+    /**
+     * Construit la définition de la commande slash pour l'API Discord
+     *
+     * @returns SlashCommandBuilder configuré avec le nom, description et options
+     *
+     * @remarks
+     * Options de commande:
+     * - pseudo (String, requis): Le pseudo in-game du joueur sur Albion Online
+     */
     public buildCommand(): SlashCommandBuilder {
         return new SlashCommandBuilder()
             .setName(this.name)
@@ -52,10 +97,28 @@ export default class RegisterCommand extends BaseCommand {
             ) as SlashCommandBuilder;
     }
 
+    /**
+     * Exécute la commande /register
+     *
+     * @param interaction - L'interaction Discord de la commande slash
+     * @returns Promise qui se résout quand l'enregistrement est terminé
+     *
+     * @remarks
+     * Flux d'exécution:
+     * 1. Defer la réponse en éphémère (recherche API peut prendre du temps)
+     * 2. Rechercher le pseudo sur l'API Albion
+     * 3. Si 0 résultat → Message d'erreur
+     * 4. Si 1 résultat → handlePlayerRegistration() directement
+     * 5. Si plusieurs résultats → showPlayerSelection() avec menu déroulant (max 25)
+     *
+     * Gestion des erreurs:
+     * - Timeout API (10s) → Message d'erreur formaté
+     * - Rate limit (429) → Message demandant de réessayer
+     * - Autres erreurs → Message générique via getAlbionApiErrorMessage()
+     */
     public async execute(interaction: ChatInputCommandInteraction): Promise<void> {
         const pseudo = interaction.options.getString('pseudo', true);
 
-        // Rechercher le joueur sur Albion
         await interaction.deferReply({ flags: MessageFlagsBitField.Flags.Ephemeral });
 
         try {
@@ -70,16 +133,14 @@ export default class RegisterCommand extends BaseCommand {
                 return;
             }
 
-            // Si un seul résultat
             if (players.length === 1) {
                 await this.handlePlayerRegistration(interaction, players[0]);
                 return;
             }
 
-            // Si plusieurs résultats, afficher un menu de sélection
             await this.showPlayerSelection(interaction, players);
         } catch (error: any) {
-            this.logger.error('Erreur lors de l\'enregistrement', error);
+            this.logger.error('Erreur lors de l\'enregistrement', 'tracer', error);
 
             await interaction.editReply({
                 content: getAlbionApiErrorMessage(error),
@@ -88,17 +149,39 @@ export default class RegisterCommand extends BaseCommand {
     }
 
     /**
-     * Gère l'enregistrement d'un joueur après vérifications
+     * Gère l'enregistrement d'un joueur après vérifications de conflits
+     *
+     * @param interaction - L'interaction Discord
+     * @param player - Le personnage Albion sélectionné
+     * @returns Promise qui se résout après traitement complet
+     *
+     * @remarks
+     * Cette méthode centralise la logique de décision pour l'enregistrement.
+     * Elle effectue 3 vérifications dans l'ordre:
+     *
+     * 1. **Personnage vérifié par quelqu'un d'autre ?**
+     *    - Résultat: REFUS strict avec embed d'erreur
+     *    - Le personnage est verrouillé à son propriétaire vérifié
+     *
+     * 2. **Utilisateur a déjà enregistré ce personnage ?**
+     *    - Résultat: Affiche le statut actuel (vérifié ou non)
+     *    - Rappel des instructions de vérification si non vérifié
+     *
+     * 3. **D'autres utilisateurs revendiquent ce personnage (non vérifié) ?**
+     *    - Résultat: Enregistrement autorisé avec avertissement
+     *    - Liste les autres revendicateurs dans l'embed
+     *    - Rappel d'importance de la vérification
+     *
+     * 4. **Aucun conflit**
+     *    - Résultat: Enregistrement normal sans avertissement
      */
     private async handlePlayerRegistration(
         interaction: ChatInputCommandInteraction,
         player: AlbionPlayer
     ): Promise<void> {
-        // Vérifier si ce personnage est vérifié par quelqu'un d'autre
         const verifiedOwner = await this.tracerService.isCharacterVerifiedByOther(player.Id, interaction.user.id);
 
         if (verifiedOwner) {
-            // Personnage vérifié par quelqu'un d'autre : refus strict
             const embed = buildCharacterAlreadyVerifiedEmbed(
                 verifiedOwner,
                 player.Name,
@@ -110,40 +193,57 @@ export default class RegisterCommand extends BaseCommand {
             return;
         }
 
-        // Vérifier si l'utilisateur a déjà enregistré ce personnage
         const existingRegistration = await this.tracerService.getUserRegistrationForCharacter(
             interaction.user.id,
             player.Id
         );
 
         if (existingRegistration) {
-            // L'utilisateur a déjà ce personnage
             await this.handleAlreadyRegistered(interaction, player);
             return;
         }
 
-        // Compter les revendications non vérifiées existantes
         const unverifiedClaimsCount = await this.tracerService.countUnverifiedClaims(player.Id);
 
         if (unverifiedClaimsCount > 0) {
-            // Il y a d'autres revendications non vérifiées : avertissement mais autorisation
             const allClaims = await this.tracerService.getAllClaimsForCharacter(player.Id);
             await this.registerPlayerWithWarning(interaction, player, allClaims);
             return;
         }
 
-        // Personnage non réclamé, on peut l'enregistrer normalement
         await this.registerPlayer(interaction, player);
     }
 
     /**
-     * Gère le cas où l'utilisateur essaie d'enregistrer un personnage qu'il possède déjà
+     * Gère le cas où l'utilisateur essaie d'enregistrer un personnage déjà lié à son compte
+     *
+     * @param interaction - L'interaction Discord
+     * @param player - Le personnage Albion que l'utilisateur possède déjà
+     * @returns Promise qui se résout après envoi de l'embed de statut
+     *
+     * @remarks
+     * Affiche un embed informatif avec deux états possibles:
+     *
+     * **Si vérifié (is_verified = 1)**:
+     * - Couleur verte (#2ECC71)
+     * - Titre: "✅ Personnage déjà enregistré et vérifié"
+     * - Pas de champ supplémentaire (déjà sécurisé)
+     *
+     * **Si non vérifié (is_verified = 0)**:
+     * - Couleur rouge (#FF6B6B)
+     * - Titre: "⚠️ Personnage déjà enregistré"
+     * - Champ "💡 Conseil" rappelant la procédure de vérification
+     *
+     * L'embed affiche toujours:
+     * - Pseudo Albion
+     * - Kill Fame (formaté)
+     * - Guilde et Alliance
+     * - Statut de vérification
      */
     private async handleAlreadyRegistered(
         interaction: ChatInputCommandInteraction,
         player: AlbionPlayer
     ): Promise<void> {
-        // Vérifier si le personnage est vérifié
         const isVerified = await this.tracerService.isAlbionCharacterVerified(player.Id);
 
         const embed = new EmbedBuilder()
@@ -159,7 +259,6 @@ export default class RegisterCommand extends BaseCommand {
             )
             .setTimestamp();
 
-        // Ajouter un champ d'information sur la vérification si le personnage n'est pas vérifié
         if (!isVerified) {
             embed.addFields({
                 name: '💡 Conseil',
@@ -174,7 +273,25 @@ export default class RegisterCommand extends BaseCommand {
     }
 
     /**
-     * Affiche un menu de sélection si plusieurs joueurs sont trouvés
+     * Affiche un menu déroulant de sélection quand plusieurs joueurs correspondent à la recherche
+     *
+     * @param interaction - L'interaction Discord
+     * @param players - Liste des joueurs trouvés via l'API Albion
+     * @returns Promise qui se résout après sélection ou timeout
+     *
+     * @remarks
+     * Crée un SelectMenu Discord avec:
+     * - Maximum 25 options (limite Discord pour les SelectMenu)
+     * - Format: "N. Pseudo | Kill Fame: XXX | Guilde"
+     * - Timeout de 60 secondes
+     *
+     * Comportement du collector:
+     * - Filtre: Seul l'utilisateur qui a lancé la commande peut sélectionner
+     * - Si sélection: Appelle handlePlayerRegistration() avec le joueur choisi
+     * - Si timeout (60s): Message d'erreur demandant de réessayer
+     * - Si utilisateur différent clique: Message éphémère de refus
+     *
+     * Le menu et l'embed sont supprimés après sélection ou timeout.
      */
     private async showPlayerSelection(
         interaction: ChatInputCommandInteraction,
@@ -257,12 +374,45 @@ export default class RegisterCommand extends BaseCommand {
                 }
             });
         } catch (error) {
-            this.logger.error('Erreur lors de la sélection du joueur', error);
+            this.logger.error('Erreur lors de la sélection du joueur', 'tracer', error);
         }
     }
 
     /**
-     * Enregistre le joueur sélectionné
+     * Enregistre un personnage Albion sans conflit (cas standard)
+     *
+     * @param interaction - L'interaction Discord
+     * @param player - Le personnage Albion à enregistrer
+     * @returns Promise qui se résout après enregistrement complet
+     *
+     * @remarks
+     * Séquence d'enregistrement standard (aucun autre claim existant):
+     *
+     * 1. **Enregistrement en base de données**
+     *    - Appelle tracerService.registerUser()
+     *    - Crée l'enregistrement dans tracer_users
+     *
+     * 2. **Mise à jour du nickname Discord**
+     *    - Format: "Pseudo [TAG]" si l'utilisateur a une guilde
+     *    - Format: "Pseudo" sinon
+     *    - Utilise updateMemberNickname() qui gère les permissions
+     *
+     * 3. **Récupération de tous les personnages de l'utilisateur**
+     *    - Pour afficher l'embed récapitulatif
+     *
+     * 4. **Construction des embeds**
+     *    - mainEmbed: Succès de l'enregistrement avec infos du personnage
+     *    - verificationEmbed: Instructions de vérification (envoyé en MP)
+     *    - summaryEmbed: Liste de tous les personnages de l'utilisateur
+     *
+     * 5. **Envoi des messages**
+     *    - Éphémère (editReply): Confirmation rapide
+     *    - MP (DM): Instructions de vérification détaillées
+     *    - Public (channel.send): mainEmbed + summaryEmbed
+     *
+     * Gestion d'erreur:
+     * - CHARACTER_VERIFIED_BY_OTHER: Affiche embed de refus (race condition)
+     * - Autres erreurs: Message générique d'erreur
      */
     private async registerPlayer(
         interaction: ChatInputCommandInteraction,
@@ -321,7 +471,7 @@ export default class RegisterCommand extends BaseCommand {
                 });
             }
         } catch (error: any) {
-            this.logger.error('Erreur lors de l\'enregistrement final', error);
+            this.logger.error('Erreur lors de l\'enregistrement final', 'tracer', error);
 
             // Gérer l'erreur de personnage vérifié par quelqu'un d'autre
             if (error.message?.startsWith('CHARACTER_VERIFIED_BY_OTHER:')) {
@@ -341,7 +491,39 @@ export default class RegisterCommand extends BaseCommand {
     }
 
     /**
-     * Enregistre le joueur avec un avertissement sur les doublons non vérifiés
+     * Enregistre un personnage Albion avec avertissement (multi-claims détectés)
+     *
+     * @param interaction - L'interaction Discord
+     * @param player - Le personnage Albion à enregistrer
+     * @param existingClaims - Liste des autres utilisateurs qui revendiquent ce personnage
+     * @returns Promise qui se résout après enregistrement complet
+     *
+     * @remarks
+     * Identique à registerPlayer() mais avec des embeds différents pour signaler le conflit.
+     *
+     * **Différences avec registerPlayer()**:
+     * - mainEmbed: Utilise buildRegistrationWithWarningEmbed() avec liste des revendicateurs
+     * - verificationEmbed: Utilise buildVerificationWarningEmbed() (plus insistant)
+     * - Message éphémère: "⚠️ Personnage enregistré avec avertissement"
+     *
+     * **Contexte du multi-claim**:
+     * - Plusieurs utilisateurs Discord revendiquent le même personnage Albion
+     * - Tous les claims sont non vérifiés (is_verified = 0)
+     * - L'enregistrement est autorisé pour permettre la flexibilité
+     * - Le premier à vérifier (mail in-game) verrouille le personnage
+     * - La vérification supprime automatiquement tous les autres claims
+     *
+     * **Informations affichées dans l'embed**:
+     * - Liste des autres revendicateurs (mentions Discord)
+     * - Nombre total de revendications
+     * - Rappel de l'importance de la vérification
+     *
+     * Séquence identique à registerPlayer():
+     * 1. Enregistrement DB
+     * 2. Mise à jour nickname
+     * 3. Récupération de tous les personnages
+     * 4. Construction des embeds (versions "warning")
+     * 5. Envoi des messages (éphémère, MP, public)
      */
     private async registerPlayerWithWarning(
         interaction: ChatInputCommandInteraction,
@@ -408,7 +590,7 @@ export default class RegisterCommand extends BaseCommand {
                 });
             }
         } catch (error: any) {
-            this.logger.error('Erreur lors de l\'enregistrement avec avertissement', error);
+            this.logger.error('Erreur lors de l\'enregistrement avec avertissement', 'tracer', error);
 
             // Gérer l'erreur de personnage vérifié par quelqu'un d'autre
             if (error.message?.startsWith('CHARACTER_VERIFIED_BY_OTHER:')) {

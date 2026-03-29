@@ -9,6 +9,40 @@ import { TracerService } from '../services/TracerService';
 import { LoggerService } from '../../../shared/services/LoggerService';
 import { ServiceContainer } from '../../../shared/services/ServiceContainer';
 
+/**
+ * Commande /verify réservée au propriétaire du bot pour vérifier les personnages Albion
+ *
+ * @remarks
+ * Commande administrative de plus haut niveau réservée au OWNER_ID du bot.
+ *
+ * Fonctionnalités:
+ * - Vérifie un personnage Albion pour un utilisateur Discord spécifique
+ * - Supprime automatiquement toutes les autres revendications du même personnage
+ * - Verrouille définitivement le personnage à cet utilisateur
+ * - Envoie une notification en MP à l'utilisateur vérifié
+ * - Affiche un rapport des revendications supprimées
+ *
+ * Processus de vérification:
+ * 1. Vérification que l'exécuteur est le propriétaire du bot
+ * 2. Récupération de tous les personnages de l'utilisateur cible
+ * 3. Recherche du personnage par nom (case-insensitive)
+ * 4. Vérification que le personnage n'est pas déjà vérifié
+ * 5. Récupération de tous les claims du personnage (pour rapport)
+ * 6. Suppression des autres revendications (DELETE WHERE albion_id = ? AND discord_id != ?)
+ * 7. Marquage du personnage comme vérifié (UPDATE SET is_verified = 1)
+ * 8. Notification en MP à l'utilisateur vérifié
+ * 9. Embed récapitulatif pour l'admin
+ *
+ * Sécurité:
+ * - Hardcoded OWNER_ID: Seul l'utilisateur avec cet ID peut exécuter la commande
+ * - Double vérification (permission Discord + vérification code)
+ * - Opération irréversible: Une fois vérifié, impossible de "dévérifier"
+ *
+ * Cas d'usage:
+ * - Après qu'un joueur a envoyé le mail in-game de vérification à "DBcide"
+ * - Pour résoudre manuellement un conflit de multi-claim
+ * - Pour sécuriser le personnage d'un membre de confiance
+ */
 export default class VerifyCommand extends BaseCommand {
     public name = 'verify';
     public description = '[OWNER] Vérifier un personnage Albion pour un utilisateur Discord';
@@ -17,6 +51,17 @@ export default class VerifyCommand extends BaseCommand {
     private logger: LoggerService;
     private readonly OWNER_ID = '506045516421791744';
 
+    /**
+     * Crée une instance de la commande /verify
+     *
+     * @remarks
+     * Initialise les services nécessaires:
+     * - LoggerService: Depuis ServiceContainer (partagé)
+     * - TracerService: Instance locale pour les opérations DB
+     *
+     * Configuration de sécurité:
+     * - OWNER_ID: Hardcodé à '506045516421791744' (ID Discord du propriétaire du bot)
+     */
     constructor() {
         super();
         const services = ServiceContainer.getInstance();
@@ -24,6 +69,18 @@ export default class VerifyCommand extends BaseCommand {
         this.tracerService = new TracerService();
     }
 
+    /**
+     * Construit la définition de la commande slash pour l'API Discord
+     *
+     * @returns SlashCommandBuilder configuré avec deux options requises
+     *
+     * @remarks
+     * Options de commande:
+     * - discord_id (String, requis): L'ID Discord de l'utilisateur à qui appartient le personnage
+     * - personnage (String, requis): Le nom exact du personnage Albion à vérifier
+     *
+     * Pas de restriction de permission par défaut car la vérification est faite dans execute().
+     */
     public buildCommand(): SlashCommandBuilder {
         return new SlashCommandBuilder()
             .setName(this.name)
@@ -42,8 +99,58 @@ export default class VerifyCommand extends BaseCommand {
             ) as SlashCommandBuilder;
     }
 
+    /**
+     * Exécute la commande /verify
+     *
+     * @param interaction - L'interaction Discord de la commande slash
+     * @returns Promise qui se résout après vérification complète
+     *
+     * @remarks
+     * Flux d'exécution complet:
+     *
+     * **1. Vérification de sécurité**
+     * - Vérifie que interaction.user.id === OWNER_ID
+     * - Si non: Message de refus éphémère + return
+     *
+     * **2. Récupération des personnages de l'utilisateur cible**
+     * - getRegisteredUsers(targetUserId)
+     * - Si aucun: Message d'erreur avec mention de l'utilisateur
+     *
+     * **3. Recherche du personnage par nom**
+     * - Recherche case-insensitive (toLowerCase)
+     * - Si non trouvé: Liste tous les personnages disponibles
+     *
+     * **4. Vérification de l'état actuel**
+     * - Si character.is_verified === 1: Message d'avertissement (déjà vérifié)
+     *
+     * **5. Détection des multi-claims**
+     * - getAllClaimsForCharacter() pour identifier les autres revendicateurs
+     * - Filtre pour exclure l'utilisateur cible
+     *
+     * **6. Vérification en base de données**
+     * - verifyCharacter() effectue:
+     *   - DELETE autres revendications (discord_id != targetUserId)
+     *   - UPDATE is_verified = 1 pour l'utilisateur cible
+     *
+     * **7. Embed récapitulatif pour l'admin**
+     * - Couleur verte (#2ECC71)
+     * - Infos du personnage vérifié
+     * - Champ optionnel: Liste des revendications supprimées (si duplicateClaims.length > 0)
+     * - Footer: "Vérifié par [admin tag]"
+     *
+     * **8. Notification en MP à l'utilisateur vérifié**
+     * - Embed vert avec icône de cadenas 🔒
+     * - Informe que le personnage est maintenant sécurisé
+     * - Si échec d'envoi (DMs fermés): Log warning silencieux
+     *
+     * **9. Logging**
+     * - Log success avec admin, utilisateur cible et nom du personnage
+     *
+     * Gestion des erreurs:
+     * - Erreur DB: Message générique d'erreur + log error
+     * - DM impossible: Log warning (n'interrompt pas le processus)
+     */
     public async execute(interaction: ChatInputCommandInteraction): Promise<void> {
-        // Vérifier que seul le propriétaire du bot peut utiliser cette commande
         if (interaction.user.id !== this.OWNER_ID) {
             await interaction.reply({
                 content: '❌ Vous n\'avez pas la permission d\'utiliser cette commande.',
@@ -58,7 +165,6 @@ export default class VerifyCommand extends BaseCommand {
         await interaction.deferReply({ flags: MessageFlagsBitField.Flags.Ephemeral });
 
         try {
-            // Récupérer tous les personnages de l'utilisateur
             const userCharacters = await this.tracerService.getRegisteredUsers(targetUserId);
 
             if (userCharacters.length === 0) {
@@ -68,7 +174,6 @@ export default class VerifyCommand extends BaseCommand {
                 return;
             }
 
-            // Chercher le personnage spécifié
             const character = userCharacters.find(
                 (char) => char.albion_name.toLowerCase() === characterName.toLowerCase()
             );
@@ -86,7 +191,6 @@ export default class VerifyCommand extends BaseCommand {
                 return;
             }
 
-            // Vérifier si le personnage est déjà vérifié
             if (character.is_verified === 1) {
                 await interaction.editReply({
                     content: `⚠️ Le personnage **${character.albion_name}** est déjà vérifié pour <@${targetUserId}>.`,
@@ -94,14 +198,11 @@ export default class VerifyCommand extends BaseCommand {
                 return;
             }
 
-            // Vérifier s'il y a des revendications multiples
             const allClaims = await this.tracerService.getAllClaimsForCharacter(character.albion_id);
             const duplicateClaims = allClaims.filter((claim) => claim.discord_id !== targetUserId);
 
-            // Vérifier le personnage
             await this.tracerService.verifyCharacter(targetUserId, character.albion_id);
 
-            // Créer l'embed de confirmation pour l'admin (éphémère)
             const adminEmbed = new EmbedBuilder()
                 .setColor('#2ECC71')
                 .setTitle('✅ Personnage vérifié avec succès')
@@ -119,7 +220,6 @@ export default class VerifyCommand extends BaseCommand {
                     iconURL: interaction.user.displayAvatarURL(),
                 });
 
-            // Ajouter un champ si des doublons ont été supprimés
             if (duplicateClaims.length > 0) {
                 const removedUsers = duplicateClaims
                     .map((claim) => `• <@${claim.discord_id}> (enregistré le ${new Date(claim.registered_at).toLocaleDateString('fr-FR')})`)
@@ -134,7 +234,6 @@ export default class VerifyCommand extends BaseCommand {
 
             await interaction.editReply({ embeds: [adminEmbed] });
 
-            // Envoyer une notification en message privé à l'utilisateur vérifié
             try {
                 const targetUser = await interaction.client.users.fetch(targetUserId);
 
@@ -172,7 +271,7 @@ export default class VerifyCommand extends BaseCommand {
                 `Personnage ${character.albion_name} vérifié pour l'utilisateur ${targetUserId} par ${interaction.user.tag}`
             );
         } catch (error) {
-            this.logger.error('Erreur lors de la vérification du personnage', error);
+            this.logger.error('Erreur lors de la vérification du personnage', 'tracer', error);
 
             await interaction.editReply({
                 content: '❌ Une erreur est survenue lors de la vérification du personnage.',

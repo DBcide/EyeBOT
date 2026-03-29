@@ -9,7 +9,7 @@ const logger = new LoggerService();
 
 async function listMigrations() {
     try {
-        logger.info('📋 Liste des migrations exécutées...');
+        logger.info('📋 Liste des migrations exécutées...', 'database');
 
         const migrationService = new MigrationService();
 
@@ -18,7 +18,7 @@ async function listMigrations() {
 
         process.exit(0);
     } catch (error) {
-        logger.error('❌ Erreur lors de la récupération des migrations', error);
+        logger.error('❌ Erreur lors de la récupération des migrations', 'database', error);
         process.exit(1);
     }
 }
