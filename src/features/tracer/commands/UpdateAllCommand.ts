@@ -5,6 +5,7 @@ import {
     PermissionFlagsBits,
     MessageFlagsBitField,
     GuildMember,
+    Message,
 } from 'discord.js';
 import { BaseCommand } from '../../../core/BaseCommand';
 import { AlbionService } from '../services/AlbionService';
@@ -158,7 +159,11 @@ export default class UpdateAllCommand extends BaseCommand {
             return;
         }
 
-        await interaction.deferReply({ flags: MessageFlagsBitField.Flags.Ephemeral });
+        // deferReply sans flag ephemeral : la progression sera visible dans le canal.
+        // Cela permet de récupérer un vrai Message après le premier editReply et d'utiliser
+        // message.edit() (token bot, sans limite 15 min) au lieu de interaction.editReply()
+        // (token webhook, qui expire 15 minutes après la création de l'interaction).
+        await interaction.deferReply();
 
         try {
             this.logger.info(`UpdateAll lancé par ${interaction.user.tag} sur ${interaction.guild.name}`);
@@ -201,9 +206,14 @@ export default class UpdateAllCommand extends BaseCommand {
 
             await interaction.editReply({ embeds: [initialEmbed] });
 
-            const results = await this.processBatchUpdates(membersToUpdate, interaction);
+            // Récupère l'objet Message réel après le premier editReply.
+            // Les appels suivants passent par message.edit() (token bot) et non
+            // interaction.editReply() (token webhook expirant à 15 min).
+            const progressMessage = await interaction.fetchReply();
 
-            await this.displayFinalSummary(interaction, results);
+            const results = await this.processBatchUpdates(membersToUpdate, progressMessage);
+
+            await this.displayFinalSummary(progressMessage, results);
 
             this.logger.success(`UpdateAll terminé : ${results.success} réussites, ${results.failures} échecs`);
 
@@ -214,6 +224,7 @@ export default class UpdateAllCommand extends BaseCommand {
             });
         }
     }
+
 
     /**
      * Récupère tous les utilisateurs enregistrés dans la base de données
@@ -272,7 +283,7 @@ export default class UpdateAllCommand extends BaseCommand {
      */
     private async processBatchUpdates(
         membersToUpdate: { member: GuildMember; dbUser: TracerUser }[],
-        interaction: ChatInputCommandInteraction
+        progressMessage: Message
     ): Promise<{ success: number; failures: number; skipped: number; details: string[] }> {
         let successCount = 0;
         let failureCount = 0;
@@ -323,7 +334,7 @@ export default class UpdateAllCommand extends BaseCommand {
                 )
                 .setTimestamp();
 
-            await interaction.editReply({ embeds: [progressEmbed] });
+            await progressMessage.edit({ embeds: [progressEmbed] });
 
             // Délai entre les batches pour éviter le "rate limit" (sauf pour le dernier batch)
             if (i + this.BATCH_SIZE < membersToUpdate.length) {
@@ -431,7 +442,7 @@ export default class UpdateAllCommand extends BaseCommand {
      * Cet embed remplace l'embed de progression affiché pendant le traitement.
      */
     private async displayFinalSummary(
-        interaction: ChatInputCommandInteraction,
+        progressMessage: Message,
         results: { success: number; failures: number; skipped: number; details: string[] }
     ): Promise<void> {
         const total = results.success + results.failures + results.skipped;
@@ -461,7 +472,7 @@ export default class UpdateAllCommand extends BaseCommand {
             });
         }
 
-        await interaction.editReply({ embeds: [summaryEmbed] });
+        await progressMessage.edit({ embeds: [summaryEmbed] });
     }
 
     /**
