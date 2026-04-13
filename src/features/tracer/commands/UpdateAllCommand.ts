@@ -251,7 +251,7 @@ export default class UpdateAllCommand extends BaseCommand {
      * Traite les mises à jour par batch pour éviter de surcharger l'API Albion
      *
      * @param membersToUpdate - Liste des membres à mettre à jour avec leurs personnages
-     * @param interaction - L'interaction Discord pour mettre à jour la progression
+     * @param progressMessage - L'interaction Discord pour mettre à jour la progression
      * @returns Promise avec statistiques détaillées (success, failures, skipped, details)
      *
      * @remarks
@@ -416,7 +416,7 @@ export default class UpdateAllCommand extends BaseCommand {
     /**
      * Affiche l'embed de résumé final après traitement de tous les membres
      *
-     * @param interaction - L'interaction Discord
+     * @param progressMessage - L'interaction Discord
      * @param results - Statistiques complètes du traitement
      * @returns Promise qui se résout après affichage de l'embed
      *
