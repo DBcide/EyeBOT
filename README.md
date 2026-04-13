@@ -189,7 +189,7 @@ pm2 start ecosystem.config.js
 
 | Command | Permission Required | Description |
 |---------|---------------------|-------------|
-| `/updateall` | Manage Nicknames | Updates all registered members' nicknames from Albion API |
+| `/updateall` | Manage Nicknames | Updates all registered members' nicknames from Albion API. Progress is posted publicly in the channel (non-ephemeral) to support operations longer than 15 minutes. |
 | `/verify` | Administrator | Verifies a user's Albion character claim |
 
 ---

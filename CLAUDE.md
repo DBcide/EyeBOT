@@ -178,6 +178,16 @@ Manages Albion Online character verification:
 - Verified characters are locked to that Discord account
 - Auto-updates Discord nicknames to match Albion character names
 
+#### `/updateall` — Long-running command pattern
+
+This command can take more than 15 minutes on large servers. Discord interaction tokens (used by `editReply`) expire after 15 minutes, which would crash mid-execution.
+
+**Solution:** after the initial `editReply`, call `interaction.fetchReply()` to get the `Message` object, then use `message.edit()` for all subsequent updates. `message.edit()` uses the bot token (no expiry), unlike the interaction webhook token.
+
+This requires the reply to be **non-ephemeral** so `fetchReply()` returns a proper `Message`. The progress embed is therefore visible publicly in the channel — intentional for an admin command.
+
+> Apply this same pattern to any future command that may run longer than 15 minutes.
+
 ### AlbionService
 
 Interacts with Albion Online public API:
