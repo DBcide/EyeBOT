@@ -10,7 +10,7 @@ const logger = new LoggerService();
 
 async function registerCommands() {
     try {
-        logger.info('🔄 Démarrage de l\'enregistrement des commandes...');
+        logger.info('🔄 Démarrage de l\'enregistrement des commandes...', 'discord');
 
         // Créer une instance du bot pour charger toutes les commandes
         const bot = new Bot();
@@ -23,7 +23,7 @@ async function registerCommands() {
             cmd.buildCommand().toJSON()
         );
 
-        logger.info(`📦 ${commands.length} commande(s) à enregistrer`);
+        logger.info(`📦 ${commands.length} commande(s) à enregistrer`, 'discord');
 
         // Vérifier les variables d'environnement
         if (!process.env.DISCORD_TOKEN) {
@@ -40,22 +40,22 @@ async function registerCommands() {
         const rest = new REST().setToken(process.env.DISCORD_TOKEN);
 
         // Enregistrer les commandes (remplace toutes les commandes existantes)
-        logger.info('⏳ Envoi des commandes à Discord...');
+        logger.info('⏳ Envoi des commandes à Discord...', 'discord');
 
         await rest.put(
             Routes.applicationGuildCommands(process.env.CLIENT_ID, process.env.GUILD_ID),
             { body: commands }
         );
 
-        logger.success(`✅ ${commands.length} commande(s) enregistrée(s) avec succès !`);
+        logger.success(`✅ ${commands.length} commande(s) enregistrée(s) avec succès !`, 'discord');
 
         // Afficher la liste des commandes enregistrées
         commands.forEach(cmd => {
-            logger.info(`   /${cmd.name} - ${cmd.description}`);
+            logger.info(`   /${cmd.name} - ${cmd.description}`, 'discord');
         });
 
     } catch (error) {
-        logger.error('❌ Erreur lors de l\'enregistrement des commandes', error);
+        logger.error('❌ Erreur lors de l\'enregistrement des commandes', 'discord', error);
         process.exit(1);
     }
 }

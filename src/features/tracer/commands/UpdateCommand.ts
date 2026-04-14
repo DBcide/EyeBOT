@@ -16,6 +16,32 @@ import { TracerUser } from '../models/AlbionTypes';
 import { updateMemberNickname } from '../utils/DiscordUtils';
 import { getAlbionApiErrorMessage } from '../utils/ErrorHandlers';
 
+/**
+ * Commande /update pour rafraîchir les informations d'un personnage Albion depuis l'API
+ *
+ * @remarks
+ * Fonctionnalités:
+ * - Rafraîchit les stats d'un personnage enregistré depuis l'API Albion
+ * - Menu de sélection si l'utilisateur a plusieurs personnages
+ * - Mise à jour en base de données (kill_fame, death_fame, guild, alliance)
+ * - Mise à jour automatique du nickname Discord
+ * - Affiche les nouvelles stats dans un embed de confirmation
+ *
+ * Cas d'usage:
+ * - L'utilisateur a changé de guilde/alliance
+ * - Les stats de fame ont évolué
+ * - Le personnage a été renommé in-game
+ *
+ * Flux d'exécution:
+ * 1. Récupère tous les personnages de l'utilisateur depuis la base de données
+ * 2. Si 0 personnage → Message d'erreur + redirection vers /register
+ * 3. Si 1 personnage → Mise à jour directe
+ * 4. Si plusieurs → Menu de sélection (timeout 60s)
+ * 5. Appel API Albion pour récupérer les données actuelles
+ * 6. Mise à jour en base de données
+ * 7. Mise à jour du nickname Discord
+ * 8. Embed de confirmation avec nouvelles stats
+ */
 export default class UpdateCommand extends BaseCommand {
     public name = 'update';
     public description = 'Mettre à jour les informations de votre compte Albion Online';
@@ -24,6 +50,15 @@ export default class UpdateCommand extends BaseCommand {
     private tracerService: TracerService;
     private readonly logger: LoggerService;
 
+    /**
+     * Crée une instance de la commande /update
+     *
+     * @remarks
+     * Initialise les services nécessaires:
+     * - LoggerService: Depuis ServiceContainer (partagé)
+     * - AlbionService: Instance locale pour les appels API
+     * - TracerService: Instance locale pour les opérations DB
+     */
     constructor() {
         super();
         const services = ServiceContainer.getInstance();
@@ -32,20 +67,51 @@ export default class UpdateCommand extends BaseCommand {
         this.tracerService = new TracerService();
     }
 
+    /**
+     * Construit la définition de la commande slash pour l'API Discord
+     *
+     * @returns SlashCommandBuilder configuré sans options
+     *
+     * @remarks
+     * Aucune option requise car la commande utilise automatiquement
+     * les personnages déjà enregistrés par l'utilisateur.
+     */
     public buildCommand(): SlashCommandBuilder {
         return new SlashCommandBuilder()
             .setName(this.name)
             .setDescription(this.description) as SlashCommandBuilder;
     }
 
+    /**
+     * Exécute la commande /update
+     *
+     * @param interaction - L'interaction Discord de la commande slash
+     * @returns Promise qui se résout après mise à jour complète
+     *
+     * @remarks
+     * Logique de routage basée sur le nombre de personnages:
+     *
+     * **0 personnage**:
+     * - Message d'erreur éphémère
+     * - Suggestion d'utiliser /register
+     *
+     * **1 personnage**:
+     * - Mise à jour directe sans menu de sélection
+     * - Appelle updateCharacter() immédiatement
+     *
+     * **Plusieurs personnages**:
+     * - Affiche un menu déroulant (showCharacterSelection)
+     * - Timeout de 60 secondes
+     * - L'utilisateur choisit quel personnage mettre à jour
+     *
+     * Toutes les réponses sont éphémères (visibles uniquement par l'utilisateur).
+     */
     public async execute(interaction: ChatInputCommandInteraction): Promise<void> {
         await interaction.deferReply({ flags: MessageFlagsBitField.Flags.Ephemeral });
 
         try {
-            // Récupérer tous les personnages de l'utilisateur
             const characters = await this.tracerService.getRegisteredUsers(interaction.user.id);
 
-            // Cas 1 : Aucun personnage enregistré
             if (characters.length === 0) {
                 await interaction.editReply({
                     content:
@@ -55,16 +121,14 @@ export default class UpdateCommand extends BaseCommand {
                 return;
             }
 
-            // Cas 2 : Un seul personnage enregistré
             if (characters.length === 1) {
                 await this.updateCharacter(interaction, characters[0]);
                 return;
             }
 
-            // Cas 3 : Plusieurs personnages enregistrés
             await this.showCharacterSelection(interaction, characters);
         } catch (error) {
-            this.logger.error('Erreur lors de la mise à jour', error);
+            this.logger.error('Erreur lors de la mise à jour', 'tracer', error);
             await interaction.editReply({
                 content: '❌ Une erreur est survenue lors de la mise à jour. Réessayez plus tard.',
             });
@@ -72,7 +136,28 @@ export default class UpdateCommand extends BaseCommand {
     }
 
     /**
-     * Affiche un menu de sélection si plusieurs personnages sont enregistrés
+     * Affiche un menu déroulant de sélection pour choisir le personnage à mettre à jour
+     *
+     * @param interaction - L'interaction Discord
+     * @param characters - Liste des personnages enregistrés par l'utilisateur
+     * @returns Promise qui se résout après sélection ou timeout
+     *
+     * @remarks
+     * Crée un SelectMenu Discord avec:
+     * - Une option par personnage de l'utilisateur
+     * - Format: "N. Pseudo | Kill Fame: XXX | Guilde"
+     * - Timeout de 60 secondes
+     *
+     * Comportement du collector:
+     * - Filtre: Seul l'utilisateur qui a lancé la commande peut sélectionner
+     * - Si sélection: Appelle updateCharacter() avec le personnage choisi
+     * - Si timeout (60s): Message d'erreur demandant de réessayer
+     * - Si utilisateur différent clique: Message éphémère de refus
+     *
+     * L'embed affiche un avertissement:
+     * "⚠️ **Attention :** Vous serez renommé sur ce serveur avec le personnage sélectionné."
+     *
+     * Le menu et l'embed sont supprimés après sélection ou timeout.
      */
     private async showCharacterSelection(
         interaction: ChatInputCommandInteraction,
@@ -155,12 +240,47 @@ export default class UpdateCommand extends BaseCommand {
                 }
             });
         } catch (error) {
-            this.logger.error('Erreur lors de la sélection du personnage', error);
+            this.logger.error('Erreur lors de la sélection du personnage', 'tracer', error);
         }
     }
 
     /**
-     * Met à jour un personnage depuis l'API Albion
+     * Met à jour les informations d'un personnage depuis l'API Albion
+     *
+     * @param interaction - L'interaction Discord
+     * @param character - Le personnage à mettre à jour (depuis la base de données)
+     * @returns Promise qui se résout après mise à jour complète
+     *
+     * @remarks
+     * Séquence de mise à jour:
+     *
+     * 1. **Appel API Albion**
+     *    - getPlayerDetailsById() avec l'albion_id du personnage
+     *    - Retourne null si le personnage n'existe plus (404)
+     *
+     * 2. **Mise à jour base de données**
+     *    - updateUserFromApi() met à jour:
+     *      - albion_name (peut changer si renommé in-game)
+     *      - kill_fame (valeur actuelle)
+     *      - death_fame (valeur actuelle)
+     *      - guild_name (nouvelle guilde ou null)
+     *      - alliance_name (nouvelle alliance ou null)
+     *      - updated_at (timestamp automatique)
+     *
+     * 3. **Mise à jour nickname Discord**
+     *    - updateMemberNickname() change le pseudo du membre
+     *    - Format: "Pseudo [TAG]" si guilde, "Pseudo" sinon
+     *    - Silencieusement ignoré si permissions insuffisantes
+     *
+     * 4. **Embed de confirmation**
+     *    - Couleur verte (#51CF66)
+     *    - Affiche toutes les nouvelles stats
+     *    - Timestamp du moment de la mise à jour
+     *
+     * Gestion des erreurs:
+     * - Personnage 404 (supprimé in-game): Message d'erreur spécifique
+     * - Timeout/Rate limit API: Message formaté via getAlbionApiErrorMessage()
+     * - Autres erreurs: Message générique
      */
     private async updateCharacter(
         interaction: ChatInputCommandInteraction,
@@ -216,7 +336,7 @@ export default class UpdateCommand extends BaseCommand {
             this.logger.success(`Personnage ${playerDetails.Name} mis à jour pour ${interaction.user.tag}`);
 
         } catch (error: any) {
-            this.logger.error('Erreur lors de la mise à jour du personnage', error);
+            this.logger.error('Erreur lors de la mise à jour du personnage', 'tracer', error);
 
             await interaction.editReply({
                 content: getAlbionApiErrorMessage(error),
