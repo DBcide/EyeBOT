@@ -280,6 +280,166 @@ export class VouchService {
         }
     }
 
+    // ─────────────────────────────────────────────────────────────────────────────
+    // Gestion des paramètres de vouch par serveur (admin)
+    // ─────────────────────────────────────────────────────────────────────────────
+
+    /**
+     * Active le vouch pour un serveur Discord (crée ou met à jour la configuration)
+     *
+     * @param guildId - ID Discord du serveur
+     */
+    public async enableGuild(guildId: string): Promise<void> {
+        try {
+            await this.db.execute(
+                `INSERT INTO vouch_guild_settings (guild_id, is_enabled)
+                 VALUES (?, 1)
+                 ON DUPLICATE KEY UPDATE is_enabled = 1`,
+                [guildId]
+            );
+            this.logger.success(`Vouch activé sur le serveur ${guildId}`);
+        } catch (error) {
+            this.logger.error('Erreur lors de l\'activation du vouch', 'vouch', error);
+            throw error;
+        }
+    }
+
+    /**
+     * Désactive le vouch pour un serveur Discord
+     *
+     * @param guildId - ID Discord du serveur
+     */
+    public async disableGuild(guildId: string): Promise<void> {
+        try {
+            await this.db.execute(
+                `INSERT INTO vouch_guild_settings (guild_id, is_enabled)
+                 VALUES (?, 0)
+                 ON DUPLICATE KEY UPDATE is_enabled = 0`,
+                [guildId]
+            );
+            this.logger.success(`Vouch désactivé sur le serveur ${guildId}`);
+        } catch (error) {
+            this.logger.error('Erreur lors de la désactivation du vouch', 'vouch', error);
+            throw error;
+        }
+    }
+
+    /**
+     * Ajoute un prérequis de rôle pour un serveur
+     *
+     * @param guildId - ID Discord du serveur
+     * @param roleId - ID Discord du rôle concerné
+     * @param requirementType - Type de condition (must_have / must_not_have)
+     * @param conditionGroup - Numéro de groupe (AND au sein, OR entre groupes)
+     * @returns L'ID du prérequis créé
+     */
+    public async addRequirement(
+        guildId: string,
+        roleId: string,
+        requirementType: 'must_have' | 'must_not_have',
+        conditionGroup: number = 1
+    ): Promise<number> {
+        try {
+            const id = await this.db.insert(
+                `INSERT INTO vouch_requirements (guild_id, role_id, requirement_type, condition_group)
+                 VALUES (?, ?, ?, ?)`,
+                [guildId, roleId, requirementType, conditionGroup]
+            );
+            this.logger.success(`Prérequis vouch ajouté (ID ${id}) sur le serveur ${guildId}`);
+            return id;
+        } catch (error) {
+            this.logger.error('Erreur lors de l\'ajout du prérequis', 'vouch', error);
+            throw error;
+        }
+    }
+
+    /**
+     * Supprime un prérequis de rôle par son ID (vérifie l'appartenance au serveur)
+     *
+     * @param requirementId - ID du prérequis à supprimer
+     * @param guildId - ID Discord du serveur (sécurité : empêche la suppression inter-serveurs)
+     * @returns true si une ligne a été supprimée, false si introuvable
+     */
+    public async removeRequirement(requirementId: number, guildId: string): Promise<boolean> {
+        try {
+            const affected = await this.db.execute(
+                'DELETE FROM vouch_requirements WHERE id = ? AND guild_id = ?',
+                [requirementId, guildId]
+            );
+            if (affected > 0) {
+                this.logger.success(`Prérequis vouch ${requirementId} supprimé sur le serveur ${guildId}`);
+            }
+            return affected > 0;
+        } catch (error) {
+            this.logger.error('Erreur lors de la suppression du prérequis', 'vouch', error);
+            throw error;
+        }
+    }
+
+    /**
+     * Modifie un prérequis existant (seuls les champs fournis sont mis à jour)
+     *
+     * @param requirementId - ID du prérequis à modifier
+     * @param guildId - ID Discord du serveur (sécurité)
+     * @param roleId - Nouveau rôle (optionnel)
+     * @param requirementType - Nouveau type (optionnel)
+     * @param conditionGroup - Nouveau groupe (optionnel)
+     * @returns true si une ligne a été modifiée, false si introuvable
+     */
+    public async modifyRequirement(
+        requirementId: number,
+        guildId: string,
+        roleId?: string,
+        requirementType?: 'must_have' | 'must_not_have',
+        conditionGroup?: number
+    ): Promise<boolean> {
+        try {
+            const parts: string[] = [];
+            const values: any[] = [];
+
+            if (roleId !== undefined) { parts.push('role_id = ?'); values.push(roleId); }
+            if (requirementType !== undefined) { parts.push('requirement_type = ?'); values.push(requirementType); }
+            if (conditionGroup !== undefined) { parts.push('condition_group = ?'); values.push(conditionGroup); }
+
+            if (parts.length === 0) return false;
+
+            values.push(requirementId, guildId);
+
+            const affected = await this.db.execute(
+                `UPDATE vouch_requirements SET ${parts.join(', ')} WHERE id = ? AND guild_id = ?`,
+                values
+            );
+            if (affected > 0) {
+                this.logger.success(`Prérequis vouch ${requirementId} modifié sur le serveur ${guildId}`);
+            }
+            return affected > 0;
+        } catch (error) {
+            this.logger.error('Erreur lors de la modification du prérequis', 'vouch', error);
+            throw error;
+        }
+    }
+
+    /**
+     * Récupère un prérequis par son ID (vérifie l'appartenance au serveur)
+     *
+     * @param requirementId - ID du prérequis
+     * @param guildId - ID Discord du serveur
+     * @returns Le prérequis ou null si introuvable
+     */
+    public async getRequirementById(requirementId: number, guildId: string): Promise<VouchRequirement | null> {
+        try {
+            return await this.db.selectOne<VouchRequirement>(
+                'SELECT * FROM vouch_requirements WHERE id = ? AND guild_id = ?',
+                [requirementId, guildId]
+            );
+        } catch (error) {
+            this.logger.error('Erreur lors de la récupération du prérequis', 'vouch', error);
+            throw error;
+        }
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────────
+
     /**
      * Récupère tous les vouches reçus par un utilisateur
      *
