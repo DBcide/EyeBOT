@@ -47,11 +47,15 @@ jobs:
 
       - name: Install dependencies
         working-directory: /home/debian/eyebot
-        run: npm ci --omit=dev
+        run: npm ci
 
       - name: Build
         working-directory: /home/debian/eyebot
         run: npm run build
+
+      - name: Remove dev dependencies
+        working-directory: /home/debian/eyebot
+        run: npm prune --omit=dev
 
       - name: Restart bot
         working-directory: /home/debian/eyebot
