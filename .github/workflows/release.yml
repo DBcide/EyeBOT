@@ -1,0 +1,63 @@
+name: Release & Deploy
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version (ex: 1.0.1)"
+        required: true
+        type: string
+
+jobs:
+  release:
+    name: Release & Deploy
+    runs-on: self-hosted
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.PAT_TOKEN }}
+
+      - name: Configure Git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Bump version in package.json
+        run: |
+          npm version ${{ github.event.inputs.version }} --no-git-tag-version
+          git add package.json package-lock.json
+          git commit -m "chore: bump version to v${{ github.event.inputs.version }}"
+          git push
+
+      - name: Create Git tag
+        run: |
+          git tag v${{ github.event.inputs.version }}
+          git push origin v${{ github.event.inputs.version }}
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ github.event.inputs.version }}
+          name: v${{ github.event.inputs.version }}
+          generate_release_notes: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Install dependencies
+        working-directory: /home/debian/eyebot
+        run: npm ci --omit=dev
+
+      - name: Build
+        working-directory: /home/debian/eyebot
+        run: npm run build
+
+      - name: Pull latest code
+        working-directory: /home/debian/eyebot
+        run: git pull
+
+      - name: Restart bot
+        working-directory: /home/debian/eyebot
+        run: pm2 restart eyebot
