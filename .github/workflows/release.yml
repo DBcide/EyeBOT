@@ -46,6 +46,10 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Pull latest code
+        working-directory: /home/debian/eyebot
+        run: git pull
+
       - name: Install dependencies
         working-directory: /home/debian/eyebot
         run: npm ci --omit=dev
@@ -53,10 +57,6 @@ jobs:
       - name: Build
         working-directory: /home/debian/eyebot
         run: npm run build
-
-      - name: Pull latest code
-        working-directory: /home/debian/eyebot
-        run: git pull
 
       - name: Restart bot
         working-directory: /home/debian/eyebot
