@@ -38,7 +38,7 @@ export default class UpdateAllCommand extends BaseCommand {
         return new SlashCommandBuilder()
             .setName(this.name)
             .setDescription(this.description)
-            .setDefaultMemberPermissions(PermissionFlagsBits.ManageNicknames) as SlashCommandBuilder;
+            .setDefaultMemberPermissions(PermissionFlagsBits.ManageNicknames);
     }
 
     public async execute(interaction: ChatInputCommandInteraction): Promise<void> {

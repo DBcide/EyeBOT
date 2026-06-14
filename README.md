@@ -216,6 +216,12 @@ npm run migrate:rollback     # Rollback last migration
 npm run migrate:list         # List executed migrations
 ```
 
+### Tests
+```bash
+npm test                  # Run tests
+npm run test:coverage     # Run tests with LCOV coverage report (used by SonarCloud)
+```
+
 ### Discord
 ```bash
 npm run register     # Register slash commands with Discord API

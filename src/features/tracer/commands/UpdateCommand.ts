@@ -35,7 +35,7 @@ export default class UpdateCommand extends BaseCommand {
     public buildCommand(): SlashCommandBuilder {
         return new SlashCommandBuilder()
             .setName(this.name)
-            .setDescription(this.description) as SlashCommandBuilder;
+            .setDescription(this.description);
     }
 
     public async execute(interaction: ChatInputCommandInteraction): Promise<void> {

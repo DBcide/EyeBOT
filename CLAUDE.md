@@ -215,7 +215,7 @@ The project includes Windows-specific commands (e.g., `npm run clean` uses `rmdi
 
 ### Workflows (.github/workflows/)
 
-- **ci.yml** — Triggered on every push/PR to `main`. Runs on GitHub-hosted `ubuntu-latest`. Steps: `npm ci` + `npm run build`. Must pass before merging.
+- **ci.yml** — Triggered on every push/PR to `main` and `develop`. Runs on GitHub-hosted `ubuntu-latest`. Steps: `npm install` + `npm run build` + `npm run test:coverage` + SonarCloud scan. Must pass before merging. Uses `npm install` instead of `npm ci` due to cross-platform lock file incompatibilities (Windows dev machine → Linux CI). Uses `fetch-depth: 0` on checkout so SonarCloud has full git history for SCM blame.
 - **release.yml** — Triggered manually via `workflow_dispatch`. Runs on the **self-hosted runner** (OVH VPS). Steps: create git tag → create GitHub Release → `git pull` → `npm ci` → `npm run build` → `npm prune --omit=dev` → `pm2 restart eyebot`.
 
 ### Security: pin GitHub Actions to full commit SHA
@@ -295,5 +295,13 @@ if (response.ok) { debug(...) } else { warn(...) }
 **Keep function nesting ≤ 4 levels deep** — extract callbacks into named functions.
 
 **Keep cognitive complexity ≤ 15 per function** — extract complex conditions and loops into smaller functions.
+
+**Never add redundant type assertions** on discord.js builder chains — TypeScript already infers the correct type:
+```typescript
+// Wrong
+return new SlashCommandBuilder().setName(this.name).setDescription(this.description) as SlashCommandBuilder;
+// Correct
+return new SlashCommandBuilder().setName(this.name).setDescription(this.description);
+```
 
 Note: `logger.warn()` only accepts a single `string` parameter. `logger.error()` accepts `(message: string, error?: any)`.
