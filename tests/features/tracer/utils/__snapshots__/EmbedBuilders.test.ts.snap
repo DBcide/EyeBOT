@@ -1,0 +1,203 @@
+// Jest Snapshot v1, https://jestjs.io/docs/snapshot-testing
+
+exports[`EmbedBuilders buildCharacterAlreadyVerifiedEmbed() [snapshot] avec playerName mais sans guildName → affiche "Aucune" 1`] = `
+{
+  "color": 15158332,
+  "description": "Ce personnage est déjà lié et **vérifié** par un autre compte Discord (<@506045516421791744>).
+
+⚠️ Un personnage vérifié ne peut pas être lié à un autre compte Discord.",
+  "fields": [
+    {
+      "inline": false,
+      "name": "📋 Informations du personnage",
+      "value": "**Albion :** DBcide
+**Kill Fame :** 1.50M
+**Guilde :** Aucune",
+    },
+  ],
+  "timestamp": "2026-01-01T00:00:00.000Z",
+  "title": "❌ Personnage déjà vérifié",
+}
+`;
+
+exports[`EmbedBuilders buildCharacterAlreadyVerifiedEmbed() [snapshot] avec tous les paramètres optionnels 1`] = `
+{
+  "color": 15158332,
+  "description": "Ce personnage est déjà lié et **vérifié** par un autre compte Discord (<@506045516421791744>).
+
+⚠️ Un personnage vérifié ne peut pas être lié à un autre compte Discord.",
+  "fields": [
+    {
+      "inline": false,
+      "name": "📋 Informations du personnage",
+      "value": "**Albion :** DBcide
+**Kill Fame :** 1.50M
+**Guilde :** Sunfall",
+    },
+  ],
+  "timestamp": "2026-01-01T00:00:00.000Z",
+  "title": "❌ Personnage déjà vérifié",
+}
+`;
+
+exports[`EmbedBuilders buildCharacterAlreadyVerifiedEmbed() [snapshot] sans paramètres optionnels → pas de champs additionnels 1`] = `
+{
+  "color": 15158332,
+  "description": "Ce personnage est déjà lié et **vérifié** par un autre compte Discord (<@506045516421791744>).
+
+⚠️ Un personnage vérifié ne peut pas être lié à un autre compte Discord.",
+  "timestamp": "2026-01-01T00:00:00.000Z",
+  "title": "❌ Personnage déjà vérifié",
+}
+`;
+
+exports[`EmbedBuilders buildCharactersSummaryEmbed() [snapshot] liste vide → affiche "Aucun personnage enregistré." 1`] = `
+{
+  "color": 4886754,
+  "description": "Aucun personnage enregistré.",
+  "footer": {
+    "icon_url": undefined,
+    "text": "Total : 0 personnage(s) | 🔒 = Vérifié",
+  },
+  "title": "📋 Personnages liés à ce compte",
+}
+`;
+
+exports[`EmbedBuilders buildCharactersSummaryEmbed() [snapshot] plusieurs personnages → numérotés et séparés 1`] = `
+{
+  "color": 4886754,
+  "description": "**1.** DBcide - 1.50M Kill Fame 🔒
+**2.** AltDBcide - 250.00K Kill Fame 
+**3.** CraftDBcide - 0 Kill Fame ",
+  "footer": {
+    "icon_url": undefined,
+    "text": "Total : 3 personnage(s) | 🔒 = Vérifié",
+  },
+  "title": "📋 Personnages liés à ce compte",
+}
+`;
+
+exports[`EmbedBuilders buildCharactersSummaryEmbed() [snapshot] un personnage non vérifié 1`] = `
+{
+  "color": 4886754,
+  "description": "**1.** DBcide - 1.50M Kill Fame ",
+  "footer": {
+    "icon_url": undefined,
+    "text": "Total : 1 personnage(s) | 🔒 = Vérifié",
+  },
+  "title": "📋 Personnages liés à ce compte",
+}
+`;
+
+exports[`EmbedBuilders buildCharactersSummaryEmbed() [snapshot] un personnage vérifié → affiche 🔒 1`] = `
+{
+  "color": 4886754,
+  "description": "**1.** DBcide - 1.50M Kill Fame 🔒",
+  "footer": {
+    "icon_url": undefined,
+    "text": "Total : 1 personnage(s) | 🔒 = Vérifié",
+  },
+  "title": "📋 Personnages liés à ce compte",
+}
+`;
+
+exports[`EmbedBuilders buildRegistrationSuccessEmbed() [snapshot] avec guilde et alliance 1`] = `
+{
+  "color": 5361510,
+  "description": "**Discord :** <@506045516421791744>
+**Albion :** DBcide
+**Kill Fame :** 1.50M
+**Guilde :** Sunfall
+**Alliance :** RIOT",
+  "timestamp": "2026-01-01T00:00:00.000Z",
+  "title": "✅ Nouveau personnage enregistré",
+}
+`;
+
+exports[`EmbedBuilders buildRegistrationSuccessEmbed() [snapshot] sans guilde ni alliance → affiche "Aucune" 1`] = `
+{
+  "color": 5361510,
+  "description": "**Discord :** <@506045516421791744>
+**Albion :** DBcide
+**Kill Fame :** 1.50M
+**Guilde :** Aucune
+**Alliance :** Aucune",
+  "timestamp": "2026-01-01T00:00:00.000Z",
+  "title": "✅ Nouveau personnage enregistré",
+}
+`;
+
+exports[`EmbedBuilders buildRegistrationWithWarningEmbed() [snapshot] avec revendications multiples 1`] = `
+{
+  "color": 15965202,
+  "description": "**Discord :** <@506045516421791744>
+**Albion :** DBcide
+**Kill Fame :** 1.50M
+**Guilde :** Sunfall
+**Alliance :** RIOT
+
+⚠️ **Attention :** Ce personnage est également revendiqué par 2 autre(s) utilisateur(s) :
+<@111111111111111111>, <@222222222222222222>
+
+Ces comptes n'étant pas vérifiés, vous pouvez aussi le revendiquer.
+**Vérifiez votre compte** pour être le seul propriétaire !",
+  "timestamp": "2026-01-01T00:00:00.000Z",
+  "title": "⚠️ Personnage enregistré (revendications multiples)",
+}
+`;
+
+exports[`EmbedBuilders buildRegistrationWithWarningEmbed() [snapshot] sans guilde ni alliance → affiche "Aucune" 1`] = `
+{
+  "color": 15965202,
+  "description": "**Discord :** <@506045516421791744>
+**Albion :** DBcide
+**Kill Fame :** 1.50M
+**Guilde :** Aucune
+**Alliance :** Aucune
+
+⚠️ **Attention :** Ce personnage est également revendiqué par 1 autre(s) utilisateur(s) :
+<@111111111111111111>
+
+Ces comptes n'étant pas vérifiés, vous pouvez aussi le revendiquer.
+**Vérifiez votre compte** pour être le seul propriétaire !",
+  "timestamp": "2026-01-01T00:00:00.000Z",
+  "title": "⚠️ Personnage enregistré (revendications multiples)",
+}
+`;
+
+exports[`EmbedBuilders buildVerificationInstructionsEmbed() [snapshot] embed d'instructions avec nom de personnage et discord ID 1`] = `
+{
+  "color": 15965202,
+  "description": "Pour **protéger** votre personnage et empêcher d'autres joueurs de le revendiquer :
+
+**1.** Connectez-vous sur **Albion Online** avec le personnage **DBcide**
+**2.** Envoyez un **courrier in-game** à **DBcide**
+**3.** Dans le courrier, indiquez votre Discord ID : \`506045516421791744\`
+**4.** Attendez la validation par un administrateur
+
+⚠️ **Important :** C'est bien le personnage Albion qui doit envoyer le courrier !",
+  "footer": {
+    "icon_url": undefined,
+    "text": "Une fois vérifié, ce personnage sera définitivement lié à votre compte Discord",
+  },
+  "title": "🔒 Sécurisez votre personnage !",
+}
+`;
+
+exports[`EmbedBuilders buildVerificationWarningEmbed() [snapshot] embed d'avertissement avec discord ID 1`] = `
+{
+  "color": 3447003,
+  "description": "Pour **sécuriser** votre personnage et empêcher d'autres joueurs de le revendiquer :
+
+**1.** Connectez-vous sur Albion Online avec ce personnage
+**2.** Envoyez un mail in-game à **DBcide** avec votre Discord ID (\`506045516421791744\`)
+**3.** Attendez la validation par un administrateur
+
+Une fois vérifié, ce personnage sera définitivement lié à votre compte Discord.",
+  "footer": {
+    "icon_url": undefined,
+    "text": "La vérification protège votre personnage contre les revendications frauduleuses",
+  },
+  "title": "🔒 Comment vérifier votre personnage ?",
+}
+`;

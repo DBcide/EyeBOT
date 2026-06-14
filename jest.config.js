@@ -20,8 +20,7 @@ module.exports = {
         '!src/core/BaseEvent.ts',
         // Commands Discord (nécessitent une interaction Discord complète)
         '!src/features/tracer/commands/**',
-        // Discord embed builders (UI pure, pas de logique métier testable)
-        '!src/features/tracer/utils/EmbedBuilders.ts',
+        // Discord embed builders → couverts par tests de snapshot
         // Health monitor (timers + HTTP heartbeat)
         '!src/shared/services/HealthMonitorService.ts',
         // Singleton thin wrapper
