@@ -257,12 +257,16 @@ The following are excluded from coverage (thin wrappers or tightly coupled to Di
 
 The project includes Windows-specific commands (e.g., `npm run clean` uses `rmdir /S /Q`). When adding new file operations in package.json scripts, ensure Windows compatibility or use cross-platform tools.
 
+### Cross-platform `package-lock.json`
+
+`.npmrc` sets `os=any` and `cpu=any` so that `npm install` on Windows generates a lock file that includes optional dependencies for all platforms (Windows + Linux). This allows `npm ci` to work identically on the Linux production server without any workaround. **Always run `npm install` (not `npm ci`) on the dev machine after adding new dependencies.**
+
 ## CI/CD Pipeline
 
 ### Workflows (.github/workflows/)
 
 - **ci.yml** — Triggered on every push/PR to `main` and `develop`. Runs on GitHub-hosted `ubuntu-latest`. Steps: `npm install` + `npm run build` + `npm run test:coverage` + SonarCloud scan. Must pass before merging. Uses `npm install` instead of `npm ci` due to cross-platform lock file incompatibilities (Windows dev machine → Linux CI). Uses `fetch-depth: 0` on checkout so SonarCloud has full git history for SCM blame.
-- **release.yml** — Triggered manually via `workflow_dispatch`. Runs on the **self-hosted runner** (OVH VPS). Steps: create git tag → create GitHub Release → `git pull` → `npm ci` → `npm run build` → `npm prune --omit=dev` → `pm2 restart eyebot`.
+- **release.yml** — Triggered manually via `workflow_dispatch`. Runs on the **self-hosted runner** (OVH VPS). Steps: create git tag → create GitHub Release → `git fetch + git reset --hard origin/main` → `npm ci --ignore-scripts` → `npm run build` → `npm prune --omit=dev` → `pm2 restart eyebot`.
 
 ### Security: pin GitHub Actions to full commit SHA
 Never use mutable tags (`@v4`, `@v2`) for GitHub Actions dependencies — the tag can be moved to malicious code. Always pin to the full commit SHA with the version as a comment:
