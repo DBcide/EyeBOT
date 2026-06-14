@@ -24,6 +24,11 @@
     "dotenv": "^16.6.1",
     "mysql2": "^3.16.0"
   },
+  "supportedArchitectures": {
+    "os": ["win32", "linux", "darwin"],
+    "cpu": ["x64", "arm64"],
+    "libc": ["glibc", "musl"]
+  },
   "devDependencies": {
     "@types/jest": "^30.0.0",
     "@types/node": "^24.10.4",
