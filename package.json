@@ -13,7 +13,9 @@
     "migrate": "ts-node src/scripts/run-migrations.ts",
     "migrate:rollback": "ts-node src/scripts/rollback-migration.ts",
     "migrate:list": "ts-node src/scripts/list-migrations.ts",
-    "download:assets": "node download-weapon-assets.js"
+    "download:assets": "node download-weapon-assets.js",
+    "test": "jest",
+    "test:coverage": "jest --coverage"
   },
   "author": "Olivier Français (DBcide)",
   "license": "ISC",
