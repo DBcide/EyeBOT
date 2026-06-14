@@ -17,11 +17,16 @@ export default class VerifyCommand extends BaseCommand {
     private readonly logger: LoggerService;
     private readonly OWNER_ID = '506045516421791744';
 
-    constructor() {
+    constructor(tracerService?: TracerService, logger?: LoggerService) {
         super();
-        const services = ServiceContainer.getInstance();
-        this.logger = services.logger;
-        this.tracerService = new TracerService();
+        if (tracerService && logger) {
+            this.tracerService = tracerService;
+            this.logger = logger;
+        } else {
+            const services = ServiceContainer.getInstance();
+            this.logger = logger ?? services.logger;
+            this.tracerService = tracerService ?? new TracerService();
+        }
     }
 
     public buildCommand(): SlashCommandBuilder {

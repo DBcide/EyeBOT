@@ -18,8 +18,7 @@ module.exports = {
         '!src/core/Bot.ts',
         '!src/core/BaseCommand.ts',
         '!src/core/BaseEvent.ts',
-        // Commands Discord (nécessitent une interaction Discord complète)
-        '!src/features/tracer/commands/**',
+        // Commands Discord non encore testées
         // Discord embed builders → couverts par tests de snapshot
         // Health monitor (timers + HTTP heartbeat)
         '!src/shared/services/HealthMonitorService.ts',

@@ -26,12 +26,18 @@ export default class UpdateAllCommand extends BaseCommand {
     private readonly BATCH_SIZE = 5; // Nombre de requêtes simultanées
     private readonly DELAY_BETWEEN_BATCHES_MS = 1000; // Délai entre chaque batch (1 seconde)
 
-    constructor() {
+    constructor(albionService?: AlbionService, tracerService?: TracerService, logger?: LoggerService) {
         super();
-        const services = ServiceContainer.getInstance();
-        this.logger = services.logger;
-        this.albionService = new AlbionService();
-        this.tracerService = new TracerService();
+        if (albionService && tracerService && logger) {
+            this.albionService = albionService;
+            this.tracerService = tracerService;
+            this.logger = logger;
+        } else {
+            const services = ServiceContainer.getInstance();
+            this.logger = logger ?? services.logger;
+            this.albionService = albionService ?? new AlbionService();
+            this.tracerService = tracerService ?? new TracerService();
+        }
     }
 
     public buildCommand(): SlashCommandBuilder {
@@ -129,8 +135,7 @@ export default class UpdateAllCommand extends BaseCommand {
      * Récupère tous les utilisateurs enregistrés dans la base de données
      */
     private async getAllRegisteredUsers(): Promise<TracerUser[]> {
-        const db = ServiceContainer.getInstance().database;
-        return await db.select<TracerUser>('SELECT * FROM tracer_users ORDER BY discord_id, is_main DESC');
+        return await this.tracerService.getAllUsers();
     }
 
     /**

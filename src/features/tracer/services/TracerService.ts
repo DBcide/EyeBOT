@@ -46,6 +46,20 @@ export class TracerService {
     }
 
     /**
+     * Récupère tous les utilisateurs enregistrés dans la base de données
+     */
+    public async getAllUsers(): Promise<TracerUser[]> {
+        try {
+            return await this.db.select<TracerUser>(
+                'SELECT * FROM tracer_users ORDER BY discord_id, is_main DESC'
+            );
+        } catch (error) {
+            this.logger.error('Erreur lors de la récupération de tous les utilisateurs', error);
+            throw error;
+        }
+    }
+
+    /**
      * Récupère UN personnage spécifique par son ID Albion
      */
     public async getRegisteredUserByAlbionId(albionId: string): Promise<TracerUser | null> {

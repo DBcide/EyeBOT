@@ -32,12 +32,18 @@ export default class RegisterCommand extends BaseCommand {
     private readonly tracerService: TracerService;
     private readonly logger: LoggerService;
 
-    constructor() {
+    constructor(albionService?: AlbionService, tracerService?: TracerService, logger?: LoggerService) {
         super();
-        const services = ServiceContainer.getInstance();
-        this.logger = services.logger;
-        this.albionService = new AlbionService();
-        this.tracerService = new TracerService();
+        if (albionService && tracerService && logger) {
+            this.albionService = albionService;
+            this.tracerService = tracerService;
+            this.logger = logger;
+        } else {
+            const services = ServiceContainer.getInstance();
+            this.logger = logger ?? services.logger;
+            this.albionService = albionService ?? new AlbionService();
+            this.tracerService = tracerService ?? new TracerService();
+        }
     }
 
     public buildCommand(): SlashCommandBuilder {
