@@ -1,6 +1,6 @@
 {
   "name": "eyebot",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "",
   "main": "dist/index.js",
   "scripts": {
@@ -23,11 +23,6 @@
     "discord.js": "^14.25.1",
     "dotenv": "^16.6.1",
     "mysql2": "^3.16.0"
-  },
-  "supportedArchitectures": {
-    "os": ["win32", "linux", "darwin"],
-    "cpu": ["x64", "arm64"],
-    "libc": ["glibc", "musl"]
   },
   "devDependencies": {
     "@types/jest": "^30.0.0",

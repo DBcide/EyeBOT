@@ -259,7 +259,9 @@ The project includes Windows-specific commands (e.g., `npm run clean` uses `rmdi
 
 ### Cross-platform `package-lock.json`
 
-`package.json` declares `supportedArchitectures` (npm 9.2+ feature) so that `npm install` on any platform generates a lock file that includes optional dependencies for all declared OS/CPU combinations (Windows, Linux, macOS × x64/arm64). This allows `npm ci` to work identically on the Linux production server and CI runner without workarounds. **Always run `npm install` on the dev machine after adding new dependencies to regenerate the lock file.**
+`package-lock.json` is generated on the **Linux production server** (not on the Windows dev machine) to ensure it includes Linux-specific optional dependencies (e.g. `@emnapi/*`). This allows `npm ci --ignore-scripts` to work identically on the CI runner and the prod server.
+
+**When adding new dependencies:** run `npm install` locally to update `package.json`, push the change, then SSH into the prod server and run `npm install --ignore-scripts` on the `fix/linux-lockfile` branch to regenerate the lock file for Linux before merging.
 
 ## CI/CD Pipeline
 
