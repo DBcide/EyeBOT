@@ -22,6 +22,12 @@ npm run clean          # Clean dist/ directory (Windows-specific)
 npm run register       # Register slash commands with Discord API
 ```
 
+### Tests
+```bash
+npm test                   # Run all tests
+npm run test:coverage      # Run tests with LCOV coverage report (used by SonarCloud)
+```
+
 ### Database Migrations
 ```bash
 npm run migrate                # Run all pending migrations
@@ -206,6 +212,46 @@ const bot = new Bot();
 const currentMetrics = bot['healthMonitor'].getCurrentMetrics();
 const avgMetrics = bot['healthMonitor'].getAverageMetrics();
 ```
+
+## Testing
+
+### Framework
+
+Tests use **Jest** with `ts-jest` for TypeScript support.
+
+- Config: `jest.config.js` — preset `ts-jest`, environment `node`, roots in `tests/`
+- Path alias `@/` maps to `src/` in tests
+- Coverage reports: `lcov` (for SonarCloud), `text`, `text-summary`
+
+### Structure
+
+Tests mirror the `src/` directory layout:
+
+```
+tests/
+├── features/
+│   └── tracer/
+│       ├── commands/        # RegisterCommand, UpdateAllCommand, UpdateCommand, VerifyCommand
+│       ├── services/        # AlbionService, TracerService
+│       └── utils/           # DiscordUtils, EmbedBuilders (snapshots), ErrorHandlers, GuildUtils
+└── shared/
+    └── services/            # DatabaseService, LoggerService
+```
+
+### Conventions
+
+- Test descriptions use `[positif]` for happy paths and `[extrême]` for edge cases/errors.
+- External dependencies (Discord.js, mysql2, Albion API) are always mocked at the module level.
+- `EmbedBuilders.test.ts` uses **Jest snapshot testing** — run `jest --updateSnapshot` to update snapshots intentionally.
+
+### Coverage Exclusions
+
+The following are excluded from coverage (thin wrappers or tightly coupled to Discord runtime):
+
+- `src/index.ts`, `src/scripts/**`
+- `src/core/Bot.ts`, `src/core/BaseCommand.ts`, `src/core/BaseEvent.ts`
+- `src/shared/services/HealthMonitorService.ts`, `src/shared/services/ServiceContainer.ts`
+- `src/database/migrations/**`, `src/database/MigrationService.ts`
 
 ## Windows Compatibility Note
 

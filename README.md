@@ -218,7 +218,7 @@ npm run migrate:list         # List executed migrations
 
 ### Tests
 ```bash
-npm test                  # Run tests
+npm test                  # Run all tests
 npm run test:coverage     # Run tests with LCOV coverage report (used by SonarCloud)
 ```
 
@@ -226,6 +226,65 @@ npm run test:coverage     # Run tests with LCOV coverage report (used by SonarCl
 ```bash
 npm run register     # Register slash commands with Discord API
 ```
+
+---
+
+## Testing
+
+EyeBOT has a full test suite built with **Jest** and `ts-jest` (TypeScript support).
+
+### Test Structure
+
+Tests are organized to mirror the `src/` directory layout:
+
+```
+tests/
+├── features/
+│   └── tracer/
+│       ├── commands/
+│       │   ├── RegisterCommand.test.ts
+│       │   ├── UpdateAllCommand.test.ts
+│       │   ├── UpdateCommand.test.ts
+│       │   └── VerifyCommand.test.ts
+│       ├── services/
+│       │   ├── AlbionService.test.ts
+│       │   └── TracerService.test.ts
+│       └── utils/
+│           ├── DiscordUtils.test.ts
+│           ├── EmbedBuilders.test.ts   # Snapshot tests
+│           ├── ErrorHandlers.test.ts
+│           └── GuildUtils.test.ts
+└── shared/
+    └── services/
+        ├── DatabaseService.test.ts
+        └── LoggerService.test.ts
+```
+
+### What Is Tested
+
+| Module | Covered |
+|--------|---------|
+| `RegisterCommand` | Registration flow, duplicate detection, collector timeout |
+| `UpdateAllCommand` | Bulk update, permission guard, batch processing |
+| `UpdateCommand` | Single update, multi-character selector, API errors |
+| `VerifyCommand` | Verification flow, owner guard, DM notification |
+| `AlbionService` | API search, player details, fame formatting, error codes |
+| `TracerService` | All DB operations, conflict detection, character helpers |
+| `DiscordUtils` | Nickname update, guild tag formatting |
+| `EmbedBuilders` | Snapshot tests for all embed builders |
+| `ErrorHandlers` | Error type detection, localized messages |
+| `GuildUtils` | Acronym extraction, fallback truncation |
+| `DatabaseService` | CRUD, transactions, connection pool |
+| `LoggerService` | All log levels, formatting, debug mode |
+
+### Conventions
+
+- `[positif]` labels mark happy-path cases; `[extrême]` labels mark edge cases and error scenarios.
+- All external dependencies (Discord.js, mysql2, Albion API HTTP calls) are mocked at the module level.
+- Snapshot tests for Discord embeds live in `tests/features/tracer/utils/__snapshots__/`. Update them intentionally with:
+  ```bash
+  npx jest --updateSnapshot
+  ```
 
 ---
 
@@ -353,8 +412,18 @@ EyeBOT/
 │   │
 │   └── index.ts               # Entry point
 │
+├── tests/                     # Test suite (mirrors src/ structure)
+│   ├── features/
+│   │   └── tracer/
+│   │       ├── commands/      # Command handler tests
+│   │       ├── services/      # Service layer tests
+│   │       └── utils/         # Utility tests (incl. snapshots)
+│   └── shared/
+│       └── services/          # Shared service tests
+│
 ├── dist/                      # Compiled JavaScript (generated)
 ├── .env                       # Environment variables (not in git)
+├── jest.config.js             # Jest test configuration
 ├── package.json
 ├── tsconfig.json
 └── README.md                  # This file
