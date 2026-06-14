@@ -15,7 +15,7 @@
     "migrate:list": "ts-node src/scripts/list-migrations.ts",
     "download:assets": "node download-weapon-assets.js",
     "test": "jest",
-    "test:coverage": "jest --coverage"
+    "test:coverage": "jest --coverage --passWithNoTests"
   },
   "author": "Olivier Français (DBcide)",
   "license": "ISC",
