@@ -480,6 +480,22 @@ Stores Albion Online character registrations.
    pm2 delete eyebot    # Remove from PM2
    ```
 
+### Versioning
+
+This project follows **Semantic Versioning (SemVer)** — format `MAJOR.MINOR.PATCH`:
+
+| Segment | When to increment | Example |
+|---------|-------------------|---------|
+| **MAJOR** | Breaking change — old code would break on the new version | `1.0.0` → `2.0.0` |
+| **MINOR** | New backward-compatible feature | `1.0.0` → `1.1.0` |
+| **PATCH** | Bug fix or minor correction | `1.0.0` → `1.0.1` |
+
+**Database changes:**
+- Adding a nullable column or a new table → **MINOR**
+- Removing/renaming a column or changing its type → **MAJOR**
+
+The rule: if the previous version of the code can still run against the new database without crashing → MINOR. If it would crash → MAJOR.
+
 ### CI/CD (GitHub Actions)
 
 The project uses a two-workflow CI/CD pipeline:
