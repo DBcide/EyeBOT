@@ -43,11 +43,13 @@ jobs:
 
       - name: Pull latest code
         working-directory: /home/debian/eyebot
-        run: git pull
+        run: |
+          git fetch origin main
+          git reset --hard origin/main
 
       - name: Install dependencies
         working-directory: /home/debian/eyebot
-        run: npm ci
+        run: npm ci --ignore-scripts
 
       - name: Build
         working-directory: /home/debian/eyebot
