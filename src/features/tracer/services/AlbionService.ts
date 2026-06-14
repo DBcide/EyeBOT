@@ -9,8 +9,8 @@ export class AlbionService {
     private readonly TIMEOUT_MS = 10000;
     private readonly logger: LoggerService;
 
-    constructor() {
-        this.logger = new LoggerService();
+    constructor(logger?: LoggerService) {
+        this.logger = logger ?? new LoggerService();
     }
 
     /**

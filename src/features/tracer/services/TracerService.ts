@@ -9,9 +9,9 @@ export class TracerService {
     private readonly db: DatabaseService;
     private readonly logger: LoggerService;
 
-    constructor() {
-        this.db = new DatabaseService();
-        this.logger = new LoggerService();
+    constructor(db?: DatabaseService, logger?: LoggerService) {
+        this.db = db ?? new DatabaseService();
+        this.logger = logger ?? new LoggerService();
     }
 
     /**
