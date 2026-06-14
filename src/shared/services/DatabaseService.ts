@@ -6,8 +6,8 @@ import { LoggerService } from './LoggerService';
  * Fournit un pool de connexions et des méthodes pour exécuter des requêtes
  */
 export class DatabaseService {
-    private pool: mysql.Pool;
-    private logger: LoggerService;
+    private readonly pool: mysql.Pool;
+    private readonly logger: LoggerService;
     private isConnected: boolean = false;
     private connectionPromise?: Promise<void>;
 

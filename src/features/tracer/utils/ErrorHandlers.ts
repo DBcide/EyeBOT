@@ -2,7 +2,7 @@
  * Convertit une erreur API Albion en message utilisateur lisible
  */
 export function getAlbionApiErrorMessage(error: any): string {
-    if (!error || !error.message) {
+    if (!error?.message) {
         return '❌ Une erreur inconnue est survenue.';
     }
 

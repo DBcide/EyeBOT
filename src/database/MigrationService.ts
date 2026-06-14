@@ -1,14 +1,13 @@
 import { DatabaseService } from '../shared/services/DatabaseService';
 import { LoggerService } from '../shared/services/LoggerService';
 import { Migration } from './Migration';
-import mysql from 'mysql2/promise';
 
 /**
  * Service de gestion des migrations de base de données
  */
 export class MigrationService {
-    private db: DatabaseService;
-    private logger: LoggerService;
+    private readonly db: DatabaseService;
+    private readonly logger: LoggerService;
 
     constructor() {
         this.db = new DatabaseService();
@@ -154,7 +153,7 @@ export class MigrationService {
         await this.ensureMigrationsTable();
 
         const migrations = await this.db.select<{ name: string; executed_at: Date }>(
-            'SELECT name, executed_at FROM migrations ORDER BY executed_at ASC'
+            'SELECT name, executed_at FROM migrations ORDER BY executed_at'
         );
 
         if (migrations.length === 0) {

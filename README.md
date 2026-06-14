@@ -33,9 +33,9 @@
 
 Before installing EyeBOT, ensure you have:
 
-- **Node.js** v16 or higher ([Download](https://nodejs.org/))
+- **Node.js** v22 or higher ([Download](https://nodejs.org/))
 - **npm** (comes with Node.js)
-- **MySQL** v5.7 or higher ([Download](https://dev.mysql.com/downloads/mysql/))
+- **MySQL / MariaDB** ([Download](https://dev.mysql.com/downloads/mysql/))
 - **Discord Bot Token** ([Create a bot](https://discord.com/developers/applications))
 - **Git** (optional, for cloning)
 
@@ -480,19 +480,22 @@ Stores Albion Online character registrations.
    pm2 delete eyebot    # Remove from PM2
    ```
 
-### O2Switch Hosting
+### CI/CD (GitHub Actions)
 
-For O2Switch Node.js hosting:
+The project uses a two-workflow CI/CD pipeline:
 
-1. **Enable health monitoring** in `.env`:
-   ```env
-   HEARTBEAT_URL=https://your-domain.com/heartbeat
-   HEARTBEAT_INTERVAL_MS=60000
-   ```
+- **CI** (`ci.yml`): Automatically triggered on every push and PR to `main`. Runs `npm ci` + `npm run build` to validate the TypeScript compiles correctly. PRs cannot be merged if this check fails.
 
-2. **Use PM2** to keep the bot running
+- **Release & Deploy** (`release.yml`): Manually triggered via GitHub Actions UI. Enter the version number (e.g. `1.1.0`) and the workflow will:
+  1. Create a git tag and GitHub Release
+  2. Pull the latest code on the production server
+  3. Build and restart the bot via PM2
 
-3. The heartbeat will prevent the host from shutting down idle processes
+**Release workflow:**
+1. Merge all features to `main` via PRs
+2. Update `version` in `package.json` in a final PR
+3. Go to **Actions → Release & Deploy → Run workflow** and enter the version
+4. The bot restarts automatically in production
 
 ---
 
@@ -564,7 +567,7 @@ For issues, questions, or feature requests:
 
 - **discord.js** - Discord API wrapper
 - **Albion Online** - Game data API
-- **O2Switch** - Node.js hosting platform
+- **OVH** - VPS hosting platform
 
 ---
 

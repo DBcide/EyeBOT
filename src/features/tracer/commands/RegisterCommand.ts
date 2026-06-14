@@ -29,7 +29,7 @@ export default class RegisterCommand extends BaseCommand {
     public description = 'Enregistrer votre compte Albion Online';
 
     private readonly albionService: AlbionService;
-    private tracerService: TracerService;
+    private readonly tracerService: TracerService;
     private readonly logger: LoggerService;
 
     constructor() {

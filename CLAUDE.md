@@ -210,3 +210,90 @@ const avgMetrics = bot['healthMonitor'].getAverageMetrics();
 ## Windows Compatibility Note
 
 The project includes Windows-specific commands (e.g., `npm run clean` uses `rmdir /S /Q`). When adding new file operations in package.json scripts, ensure Windows compatibility or use cross-platform tools.
+
+## CI/CD Pipeline
+
+### Workflows (.github/workflows/)
+
+- **ci.yml** — Triggered on every push/PR to `main`. Runs on GitHub-hosted `ubuntu-latest`. Steps: `npm ci` + `npm run build`. Must pass before merging.
+- **release.yml** — Triggered manually via `workflow_dispatch`. Runs on the **self-hosted runner** (OVH VPS). Steps: create git tag → create GitHub Release → `git pull` → `npm ci` → `npm run build` → `npm prune --omit=dev` → `pm2 restart eyebot`.
+
+### Security: pin GitHub Actions to full commit SHA
+Never use mutable tags (`@v4`, `@v2`) for GitHub Actions dependencies — the tag can be moved to malicious code. Always pin to the full commit SHA with the version as a comment:
+```yaml
+uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4
+```
+
+### Versioning workflow (no CLI required)
+1. Update `version` in `package.json` in a PR and merge to `main`
+2. Go to GitHub → Actions → Release & Deploy → Run workflow → enter version (e.g. `1.1.0`)
+3. The workflow creates the git tag, GitHub Release, and deploys to prod automatically
+
+Version format: `MAJOR.MINOR.PATCH` — left = most impactful change.
+
+### Branch protection on `main`
+- All changes to `main` must go through a PR
+- `Build & Type Check` CI status check must pass
+- Force pushes blocked
+- The CI workflow (`ci.yml`) runs on `ubuntu-latest` (GitHub-hosted), NOT on the self-hosted runner — this avoids supply chain risks from fork PRs on a public repo
+
+### Required GitHub secrets
+- `PAT_TOKEN` — Personal Access Token with `repo` scope, used by the release workflow to push git tags to the protected `main` branch
+
+## Production Server (OVH VPS)
+
+- **OS**: Debian 12 (Trixie)
+- **Location**: `~/eyebot/`
+- **Process manager**: PM2 (`pm2 restart eyebot`, `pm2 logs eyebot`)
+- **SSH port**: 52855 (non-default, configured per OVH security guide)
+- **Database**: MariaDB, user `eyebot`, database `eyebot`
+- **GitHub Actions runner**: self-hosted, installed at `~/actions-runner/`, running as systemd service
+- **Node.js**: v22 via nvm (`~/.nvm`)
+- **Migrations**: run manually — no automated migration in CI/CD until a database backup system is in place
+
+## Code Quality Rules (SonarCloud)
+
+This project uses SonarCloud (free tier, public repo) for automatic analysis on every push/PR to `main`.
+
+### Patterns to follow
+
+**Always mark class members as `readonly` if never reassigned:**
+```typescript
+private readonly logger: LoggerService;
+private readonly services: ServiceContainer;
+```
+
+**Use optional chaining instead of double null checks:**
+```typescript
+// Wrong
+if (!error || !error.message) { ... }
+// Correct
+if (!error?.message) { ... }
+```
+
+**Avoid negated conditions with else — put positive case first:**
+```typescript
+// Wrong
+if (!response.ok) { warn(...) } else { debug(...) }
+// Correct
+if (response.ok) { debug(...) } else { warn(...) }
+```
+
+**Always handle caught exceptions — include the error in the log:**
+```typescript
+// Wrong
+} catch (dmError) {
+    this.logger.warn('Could not send DM');
+}
+// Correct
+} catch (dmError) {
+    const errorMessage = dmError instanceof Error ? dmError.message : String(dmError);
+    this.logger.warn(`Could not send DM: ${errorMessage}`);
+}
+```
+
+**Keep function nesting ≤ 4 levels deep** — extract callbacks into named functions.
+
+**Keep cognitive complexity ≤ 15 per function** — extract complex conditions and loops into smaller functions.
+
+Note: `logger.warn()` only accepts a single `string` parameter. `logger.error()` accepts `(message: string, error?: any)`.

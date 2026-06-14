@@ -13,8 +13,8 @@ export default class VerifyCommand extends BaseCommand {
     public name = 'verify';
     public description = '[OWNER] Vérifier un personnage Albion pour un utilisateur Discord';
 
-    private tracerService: TracerService;
-    private logger: LoggerService;
+    private readonly tracerService: TracerService;
+    private readonly logger: LoggerService;
     private readonly OWNER_ID = '506045516421791744';
 
     constructor() {
@@ -163,8 +163,9 @@ export default class VerifyCommand extends BaseCommand {
                     `Notification de vérification envoyée en DM à l'utilisateur ${targetUserId}`
                 );
             } catch (dmError) {
+                const errorMessage = dmError instanceof Error ? dmError.message : String(dmError);
                 this.logger.warn(
-                    `Impossible d'envoyer un DM à l'utilisateur ${targetUserId} - Peut-être ses DMs sont fermés`
+                    `Impossible d'envoyer un DM à l'utilisateur ${targetUserId} - Peut-être ses DMs sont fermés : ${errorMessage}`
                 );
             }
 

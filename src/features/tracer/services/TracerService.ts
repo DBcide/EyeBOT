@@ -1,14 +1,13 @@
 ﻿import { DatabaseService } from '../../../shared/services/DatabaseService';
 import { LoggerService } from '../../../shared/services/LoggerService';
-import {AlbionPlayerDetailed, TracerUser} from '../models/AlbionTypes';
-import { AlbionPlayer } from '../models/AlbionTypes';
+import {AlbionPlayer, AlbionPlayerDetailed, TracerUser} from '../models/AlbionTypes';
 
 /**
  * Service pour gérer l'enregistrement et le suivi des utilisateurs
  */
 export class TracerService {
-    private db: DatabaseService;
-    private logger: LoggerService;
+    private readonly db: DatabaseService;
+    private readonly logger: LoggerService;
 
     constructor() {
         this.db = new DatabaseService();

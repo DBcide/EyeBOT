@@ -1,6 +1,6 @@
 import { Client } from 'discord.js';
 import { LoggerService } from './LoggerService';
-import os from 'os';
+import os from 'node:os';
 
 /**
  * Interface pour les métriques système
@@ -43,7 +43,7 @@ export interface DiscordMetrics {
  * Permet de garder le bot actif et de surveiller ses performances
  */
 export class HealthMonitorService {
-    private logger: LoggerService;
+    private readonly logger: LoggerService;
     private client?: Client;
     private intervalId?: NodeJS.Timeout;
     private heartbeatIntervalId?: NodeJS.Timeout;
@@ -54,11 +54,11 @@ export class HealthMonitorService {
     private readonly HEARTBEAT_URL?: string;
 
     // Métriques de démarrage pour calculer les deltas
-    private startTime: Date;
+    private readonly startTime: Date;
     private previousCpuUsage: NodeJS.CpuUsage;
 
     // Historique des métriques (dernières 10 minutes)
-    private metricsHistory: SystemMetrics[] = [];
+    private readonly metricsHistory: SystemMetrics[] = [];
     private readonly MAX_HISTORY_SIZE = 60; // 60 entrées * 10 secondes = 10 minutes
 
     constructor() {
@@ -319,10 +319,10 @@ export class HealthMonitorService {
                 body: JSON.stringify(payload),
             });
 
-            if (!response.ok) {
-                this.logger.warn(`⚠️  Heartbeat failed: ${response.status} ${response.statusText}`);
-            } else {
+            if (response.ok) {
                 this.logger.debug(`💓 Heartbeat envoyé avec succès`);
+            } else {
+                this.logger.warn(`⚠️  Heartbeat failed: ${response.status} ${response.statusText}`);
             }
 
         } catch (error: any) {

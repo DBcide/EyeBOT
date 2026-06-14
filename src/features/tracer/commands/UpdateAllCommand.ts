@@ -18,8 +18,8 @@ export default class UpdateAllCommand extends BaseCommand {
     public name = 'updateall';
     public description = 'Met à jour les pseudonymes de tous les membres enregistrés sur le serveur';
 
-    private albionService: AlbionService;
-    private tracerService: TracerService;
+    private readonly albionService: AlbionService;
+    private readonly tracerService: TracerService;
     private readonly logger: LoggerService;
 
     // Configuration pour optimiser les requêtes API

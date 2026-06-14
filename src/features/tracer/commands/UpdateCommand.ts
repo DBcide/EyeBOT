@@ -20,8 +20,8 @@ export default class UpdateCommand extends BaseCommand {
     public name = 'update';
     public description = 'Mettre à jour les informations de votre compte Albion Online';
 
-    private albionService: AlbionService;
-    private tracerService: TracerService;
+    private readonly albionService: AlbionService;
+    private readonly tracerService: TracerService;
     private readonly logger: LoggerService;
 
     constructor() {

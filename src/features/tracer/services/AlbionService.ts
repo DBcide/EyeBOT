@@ -7,7 +7,7 @@ import { LoggerService } from '../../../shared/services/LoggerService';
 export class AlbionService {
     private readonly API_BASE_URL = 'https://gameinfo-ams.albiononline.com/api/gameinfo';
     private readonly TIMEOUT_MS = 10000;
-    private logger: LoggerService;
+    private readonly logger: LoggerService;
 
     constructor() {
         this.logger = new LoggerService();
