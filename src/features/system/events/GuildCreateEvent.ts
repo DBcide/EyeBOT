@@ -58,27 +58,25 @@ export default class GuildCreateEvent extends BaseEvent {
      *
      * @remarks
      * **Séquence d'exécution**:
-     * 1. Log console success avec nom et ID du serveur
+     * 1. logger.success() : console + system_logs (level 'success', category 'discord',
+     *    context { guildId, guildName, memberCount })
      * 2. Enregistrement dans event_logs via dbLogger.logEvent():
      *    - eventType: 'guild_create'
      *    - guildId: ID du serveur
      *    - details: { guildName, memberCount, ownerId, createdAt }
-     * 3. Enregistrement dans system_logs via dbLogger.logSystem():
-     *    - level: 'info'
-     *    - category: 'discord'
-     *    - message: "Bot ajouté au serveur X (Y membres)"
-     *    - context: { guildId, guildName, memberCount }
      *
      * **Gestion des erreurs**:
-     * - Les méthodes dbLogger sont fail-safe (pas de throw)
+     * - LoggerService et dbLogger sont fail-safe (pas de throw)
      * - En cas d'erreur DB, l'événement continue sans crasher le bot
-     *
-     * **Double logging**:
-     * - event_logs: Pour tracking spécifique des événements Discord
-     * - system_logs: Pour logs système généraux
      */
     public async execute(guild: Guild): Promise<void> {
-        this.logger.success(`🎉 Bot ajouté au serveur: ${guild.name} (ID: ${guild.id})`, 'discord');
+        // logger.success écrit déjà dans system_logs : le contexte y est joint directement
+        // (un appel séparé à dbLogger.logSystem() créait une ligne en double)
+        this.logger.success(`🎉 Bot ajouté au serveur: ${guild.name} (ID: ${guild.id})`, 'discord', {
+            guildId: guild.id,
+            guildName: guild.name,
+            memberCount: guild.memberCount,
+        });
 
         await this.services.dbLogger.logEvent({
             eventType: 'guild_create',
@@ -88,17 +86,6 @@ export default class GuildCreateEvent extends BaseEvent {
                 memberCount: guild.memberCount,
                 ownerId: guild.ownerId,
                 createdAt: guild.createdAt.toISOString(),
-            },
-        });
-
-        await this.services.dbLogger.logSystem({
-            level: 'info',
-            category: 'discord',
-            message: `Bot ajouté au serveur ${guild.name} (${guild.memberCount} membres)`,
-            context: {
-                guildId: guild.id,
-                guildName: guild.name,
-                memberCount: guild.memberCount,
             },
         });
     }

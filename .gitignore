@@ -1,0 +1,19 @@
+# Dépendances et builds
+node_modules/
+dist/
+coverage/
+
+# Secrets (ne jamais committer)
+.env
+.env.*
+
+# Logs PM2
+logs/
+*.log
+
+# IDE
+.idea/
+.vscode/
+
+# Paramètres locaux Claude Code
+.claude/settings.local.json

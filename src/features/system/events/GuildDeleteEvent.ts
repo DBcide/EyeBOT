@@ -59,31 +59,28 @@ export default class GuildDeleteEvent extends BaseEvent {
      *
      * @remarks
      * **Séquence d'exécution**:
-     * 1. Log console warn avec nom et ID du serveur
+     * 1. logger.warn() : console + system_logs (level 'warn', category 'discord',
+     *    context { guildId, guildName })
      * 2. Enregistrement dans event_logs via dbLogger.logEvent():
      *    - eventType: 'guild_delete'
      *    - guildId: ID du serveur
      *    - details: { guildName, memberCount }
-     * 3. Enregistrement dans system_logs via dbLogger.logSystem():
-     *    - level: 'warn'
-     *    - category: 'discord'
-     *    - message: "Bot retiré du serveur X"
-     *    - context: { guildId, guildName }
      *
      * **Gestion des erreurs**:
-     * - Les méthodes dbLogger sont fail-safe (pas de throw)
+     * - LoggerService et dbLogger sont fail-safe (pas de throw)
      * - En cas d'erreur DB, l'événement continue sans crasher le bot
-     *
-     * **Double logging**:
-     * - event_logs: Pour tracking spécifique des événements Discord
-     * - system_logs: Pour logs système généraux
      *
      * **Niveau warn vs error**:
      * - warn: Car le départ peut être volontaire ou temporaire (pas forcément un problème)
      * - error serait utilisé uniquement si le départ causait un crash
      */
     public async execute(guild: Guild): Promise<void> {
-        this.logger.warn(`👋 Bot retiré du serveur: ${guild.name} (ID: ${guild.id})`, 'discord');
+        // logger.warn écrit déjà dans system_logs : le contexte y est joint directement
+        // (un appel séparé à dbLogger.logSystem() créait une ligne en double)
+        this.logger.warn(`👋 Bot retiré du serveur: ${guild.name} (ID: ${guild.id})`, 'discord', {
+            guildId: guild.id,
+            guildName: guild.name,
+        });
 
         await this.services.dbLogger.logEvent({
             eventType: 'guild_delete',
@@ -91,16 +88,6 @@ export default class GuildDeleteEvent extends BaseEvent {
             details: {
                 guildName: guild.name,
                 memberCount: guild.memberCount,
-            },
-        });
-
-        await this.services.dbLogger.logSystem({
-            level: 'warn',
-            category: 'discord',
-            message: `Bot retiré du serveur ${guild.name}`,
-            context: {
-                guildId: guild.id,
-                guildName: guild.name,
             },
         });
     }

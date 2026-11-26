@@ -1,10 +1,8 @@
+// Doit rester le premier import : charge le .env avant que les autres modules lisent process.env
+import 'dotenv/config';
 import { MigrationService } from '../database/MigrationService';
 import { migrations } from '../database/migrations';
 import { LoggerService } from '../shared/services/LoggerService';
-import dotenv from 'dotenv';
-
-// Charger les variables d'environnement
-dotenv.config();
 
 const logger = new LoggerService();
 

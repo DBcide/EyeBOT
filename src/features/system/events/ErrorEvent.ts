@@ -64,15 +64,15 @@ export default class ErrorEvent extends BaseEvent {
      *
      * @remarks
      * **Séquence d'exécution**:
-     * 1. Log console error avec stack trace complète via LoggerService
-     * 2. Enregistrement dans system_logs via dbLogger.logSystem():
+     * 1. logger.error() affiche l'erreur et sa stack trace en console
+     * 2. Le même appel l'enregistre dans system_logs:
      *    - level: 'error'
      *    - category: 'discord'
-     *    - message: "Erreur Discord: {error.message}"
-     *    - context: { errorName, errorMessage, errorStack }
+     *    - message: "❌ Erreur Discord: {error.message}"
+     *    - context: { name, message, stack }
      *
      * **Gestion des erreurs**:
-     * - dbLogger.logSystem() est fail-safe (pas de throw)
+     * - LoggerService est fail-safe (pas de throw)
      * - En cas d'erreur DB, l'événement continue sans crasher
      * - L'erreur reste visible en console même si le log DB échoue
      *
@@ -95,17 +95,8 @@ export default class ErrorEvent extends BaseEvent {
      * ```
      */
     public async execute(error: Error): Promise<void> {
-        this.logger.error('❌ Erreur Discord détectée', 'discord', error);
-
-        await this.services.dbLogger.logSystem({
-            level: 'error',
-            category: 'discord',
-            message: `Erreur Discord: ${error.message}`,
-            context: {
-                errorName: error.name,
-                errorMessage: error.message,
-                errorStack: error.stack,
-            },
-        });
+        // logger.error écrit déjà dans system_logs (avec name, message et stack en contexte) :
+        // un appel supplémentaire à dbLogger.logSystem() créait une ligne en double
+        this.logger.error(`❌ Erreur Discord: ${error.message}`, 'discord', error);
     }
 }

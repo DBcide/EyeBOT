@@ -174,7 +174,8 @@ export default class UpdateCommand extends BaseCommand {
         const selectMenu = new StringSelectMenuBuilder()
             .setCustomId('select-character-update')
             .setPlaceholder('Sélectionnez le personnage à mettre à jour')
-            .addOptions(options);
+            // Discord limite un menu à 25 options (au-delà, addOptions lève une erreur)
+            .addOptions(options.slice(0, 25));
 
         const row = new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(selectMenu);
 
@@ -199,20 +200,24 @@ export default class UpdateCommand extends BaseCommand {
             components: [row],
         });
 
-        try {
-            const collector = response.createMessageComponentCollector({
-                componentType: ComponentType.StringSelect,
-                time: 60_000, // 1 minute
-            });
+        const collector = response.createMessageComponentCollector({
+            componentType: ComponentType.StringSelect,
+            time: 60_000,
+        });
 
-            collector.on('collect', async (selectInteraction) => {
+        // Le handler tourne après la fin de execute() : ses erreurs doivent être gérées ici
+        collector.on('collect', async (selectInteraction) => {
+            try {
                 if (selectInteraction.user.id !== interaction.user.id) {
                     await selectInteraction.reply({
                         content: '❌ Ce menu ne vous est pas destiné.',
-                        ephemeral: true,
+                        flags: MessageFlagsBitField.Flags.Ephemeral,
                     });
                     return;
                 }
+
+                // Une seule sélection est traitée (évite des mises à jour concurrentes)
+                collector.stop('selected');
 
                 const selectedCharacterId = selectInteraction.values[0];
                 const selectedCharacter = characters.find((char) => char.albion_id === selectedCharacterId);
@@ -228,19 +233,32 @@ export default class UpdateCommand extends BaseCommand {
 
                 await selectInteraction.deferUpdate();
                 await this.updateCharacter(interaction, selectedCharacter);
-            });
+            } catch (error) {
+                this.logger.error('Erreur lors de la sélection du personnage', 'tracer', error);
+                await this.safeEditReply(interaction, '❌ Une erreur est survenue lors de la mise à jour. Réessayez plus tard.');
+            }
+        });
 
-            collector.on('end', async (collected) => {
-                if (collected.size === 0) {
-                    await interaction.editReply({
-                        content: '⏱️ Temps écoulé. Veuillez réessayer la commande.',
-                        embeds: [],
-                        components: [],
-                    });
-                }
-            });
+        collector.on('end', async (_collected, reason) => {
+            if (reason === 'time') {
+                await this.safeEditReply(interaction, '⏱️ Temps écoulé. Veuillez réessayer la commande.');
+            }
+        });
+    }
+
+    /**
+     * Modifie la réponse éphémère sans jamais lever d'erreur
+     *
+     * @param interaction - L'interaction Discord d'origine
+     * @param content - Le texte à afficher (embeds et composants retirés)
+     */
+    private async safeEditReply(interaction: ChatInputCommandInteraction, content: string): Promise<void> {
+        try {
+            await interaction.editReply({ content, embeds: [], components: [] });
         } catch (error) {
-            this.logger.error('Erreur lors de la sélection du personnage', 'tracer', error);
+            this.logger.warn('Impossible de modifier la réponse de /update', 'tracer', {
+                error: error instanceof Error ? error.message : String(error),
+            });
         }
     }
 
@@ -288,7 +306,7 @@ export default class UpdateCommand extends BaseCommand {
     ): Promise<void> {
         try {
             // Récupérer les données à jour depuis l'API Albion
-            this.logger.debug(`Mise à jour du personnage ${character.albion_name} (ID: ${character.albion_id})`);
+            this.logger.debug(`Mise à jour du personnage ${character.albion_name} (ID: ${character.albion_id})`, 'tracer');
 
             const playerDetails = await this.albionService.getPlayerDetailsById(character.albion_id);
 
@@ -333,7 +351,7 @@ export default class UpdateCommand extends BaseCommand {
                 components: [],
             });
 
-            this.logger.success(`Personnage ${playerDetails.Name} mis à jour pour ${interaction.user.tag}`);
+            this.logger.success(`Personnage ${playerDetails.Name} mis à jour pour ${interaction.user.tag}`, 'tracer');
 
         } catch (error: any) {
             this.logger.error('Erreur lors de la mise à jour du personnage', 'tracer', error);

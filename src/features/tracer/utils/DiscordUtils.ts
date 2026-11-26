@@ -74,9 +74,9 @@ export async function updateMemberNickname(
         return true;
     } catch (error) {
         if (logger) {
-            logger.warn(`Impossible de renommer le membre ${userId}`);
+            logger.warn(`Impossible de renommer le membre ${userId}`, 'tracer');
             if (error instanceof Error) {
-                logger.debug(`Détails de l'erreur: ${error.message}`);
+                logger.debug(`Détails de l'erreur: ${error.message}`, 'tracer');
             }
         }
         return false;

@@ -200,7 +200,9 @@ export class DatabaseLoggingService {
      * - Les erreurs sont capturées et loggées dans la console
      * - Aucune erreur n'est propagée (principe fail-safe)
      *
-     * Appelé automatiquement par LoggerService pour chaque log émis.
+     * Note: LoggerService écrit déjà lui-même dans system_logs pour chaque log émis.
+     * N'appeler cette méthode que pour un log qui ne passe pas par LoggerService,
+     * sinon la ligne sera dupliquée.
      *
      * @example
      * ```typescript
@@ -300,6 +302,23 @@ export class DatabaseLoggingService {
     }
 
     /**
+     * Normalise une valeur de LIMIT en entier positif
+     *
+     * @param limit - La limite demandée
+     * @returns Un entier strictement positif (100 si la valeur est invalide)
+     *
+     * @remarks
+     * mysql2 `execute()` (requêtes préparées) rejette `LIMIT ?` sur MySQL 8.0.22+
+     * ("Incorrect arguments to mysqld_stmt_execute"). La limite est donc injectée
+     * directement dans la requête, après avoir été forcée en entier borné
+     * (aucun risque d'injection SQL).
+     */
+    private toSafeLimit(limit: number): number {
+        const value = Math.trunc(Number(limit));
+        return Number.isFinite(value) && value >= 1 ? value : 100;
+    }
+
+    /**
      * Récupère les logs de commandes les plus récents
      *
      * @param limit - Nombre maximum de logs à récupérer (défaut: 100)
@@ -325,9 +344,9 @@ export class DatabaseLoggingService {
         const sql = `
             SELECT * FROM command_logs
             ORDER BY executed_at DESC
-            LIMIT ?
+            LIMIT ${this.toSafeLimit(limit)}
         `;
-        return this.database.select<any>(sql, [limit]);
+        return this.database.select<any>(sql);
     }
 
     /**
@@ -355,9 +374,9 @@ export class DatabaseLoggingService {
         const sql = `
             SELECT * FROM system_logs
             ORDER BY created_at DESC
-            LIMIT ?
+            LIMIT ${this.toSafeLimit(limit)}
         `;
-        return this.database.select<any>(sql, [limit]);
+        return this.database.select<any>(sql);
     }
 
     /**
@@ -385,9 +404,9 @@ export class DatabaseLoggingService {
         const sql = `
             SELECT * FROM event_logs
             ORDER BY created_at DESC
-            LIMIT ?
+            LIMIT ${this.toSafeLimit(limit)}
         `;
-        return this.database.select<any>(sql, [limit]);
+        return this.database.select<any>(sql);
     }
 
     /**

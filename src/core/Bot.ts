@@ -1,4 +1,12 @@
-import { Client, Collection, GatewayIntentBits, Events, Interaction } from 'discord.js';
+import {
+    ChatInputCommandInteraction,
+    Client,
+    Collection,
+    GatewayIntentBits,
+    Events,
+    Interaction,
+    MessageFlags,
+} from 'discord.js';
 import { BaseCommand } from './BaseCommand';
 import { BaseEvent } from './BaseEvent';
 import { LoggerService } from '../shared/services/LoggerService';
@@ -36,13 +44,14 @@ export class Bot {
         this.logger = this.services.logger;
         this.healthMonitor = new HealthMonitorService(this.services.logger);
 
+        // Seuls les intents réellement utilisés : Guilds (serveurs, salons, interactions)
+        // et GuildMembers (fetch des membres + renommage). Les intents privilégiés
+        // GuildPresences / MessageContent n'étaient utilisés nulle part et coûtaient
+        // de la mémoire (cache des présences) et du trafic gateway.
         this.client = new Client({
             intents: [
                 GatewayIntentBits.Guilds,
                 GatewayIntentBits.GuildMembers,
-                GatewayIntentBits.GuildMessages,
-                GatewayIntentBits.MessageContent,
-                GatewayIntentBits.GuildPresences,
             ]
         });
 
@@ -78,12 +87,15 @@ export class Bot {
         await this.loadCommands();
         await this.loadEvents();
         this.registerInteractionHandler();
-        await this.client.login(process.env.DISCORD_TOKEN);
 
+        // Le listener doit être posé AVANT login() : sinon l'événement ready peut
+        // être émis avant l'enregistrement et le health monitor ne démarre jamais.
         this.client.once(Events.ClientReady, () => {
             this.healthMonitor.start(this.client);
             this.logger.success('✅ Bot démarré et connecté à Discord', 'startup');
         });
+
+        await this.client.login(process.env.DISCORD_TOKEN);
     }
 
     /**
@@ -177,10 +189,17 @@ export class Bot {
 
                     const event: BaseEvent = new EventClass();
 
+                    // Une erreur dans un handler ne doit jamais devenir une promesse rejetée non gérée
+                    const listener = (...args: any[]) => {
+                        event.execute(...args).catch((error) => {
+                            this.logger.error(`Erreur dans l'événement ${event.name}`, 'discord', error);
+                        });
+                    };
+
                     if (event.once) {
-                        this.client.once(event.name, (...args) => event.execute(...args));
+                        this.client.once(event.name, listener);
                     } else {
-                        this.client.on(event.name, (...args) => event.execute(...args));
+                        this.client.on(event.name, listener);
                     }
 
                     this.logger.success(`Événement chargé: ${event.name} (feature: ${feature}, once: ${event.once})`, 'startup');
@@ -282,15 +301,38 @@ export class Bot {
                     errorMessage: error?.message || String(error),
                 });
 
-                const errorMessage = { content: '❌ Une erreur est survenue lors de l\'exécution de cette commande.', ephemeral: true };
-
-                if (interaction.replied || interaction.deferred) {
-                    await interaction.followUp(errorMessage);
-                } else {
-                    await interaction.reply(errorMessage);
-                }
+                await this.replyWithError(interaction);
             }
         });
+    }
+
+    /**
+     * Informe l'utilisateur qu'une commande a échoué
+     *
+     * @param interaction - L'interaction de la commande en erreur
+     *
+     * @remarks
+     * La réponse peut elle-même échouer (interaction expirée, salon supprimé…).
+     * Cette erreur est loggée mais jamais propagée, sinon elle remonterait en
+     * promesse rejetée non gérée depuis le listener InteractionCreate.
+     */
+    private async replyWithError(interaction: ChatInputCommandInteraction): Promise<void> {
+        const errorMessage = {
+            content: '❌ Une erreur est survenue lors de l\'exécution de cette commande.',
+            flags: MessageFlags.Ephemeral,
+        } as const;
+
+        try {
+            if (interaction.replied || interaction.deferred) {
+                await interaction.followUp(errorMessage);
+            } else {
+                await interaction.reply(errorMessage);
+            }
+        } catch (replyError) {
+            this.logger.warn(`Impossible de notifier l'erreur de /${interaction.commandName} à l'utilisateur`, 'discord', {
+                error: replyError instanceof Error ? replyError.message : String(replyError),
+            });
+        }
     }
 
     /**
@@ -313,9 +355,10 @@ export class Bot {
      * Séquence d'arrêt propre:
      * 1. Arrêt du health monitor (stop intervals)
      * 2. Déconnexion du client Discord
-     * 3. Fermeture de la connexion à la base de données
+     * 3. Attente des écritures de logs en cours (logger.flush())
+     * 4. Fermeture de la connexion à la base de données
      *
-     * Tous les logs d'arrêt sont écrits en base de données avant la fermeture.
+     * Les logs émis avant l'étape 4 sont écrits en base ; les suivants en console seulement.
      * Les erreurs d'arrêt sont loggées mais ne bloquent pas la suite de la séquence.
      *
      * @example
@@ -330,14 +373,20 @@ export class Bot {
             this.healthMonitor.stop();
             this.logger.info('✅ Health Monitor arrêté', 'shutdown');
 
-            if (this.client.isReady()) {
-                await this.client.destroy();
-                this.logger.info('✅ Déconnexion Discord réussie', 'shutdown');
-            }
+            // destroy() est appelé même si le client n'est pas "ready" (ex: reconnexion en cours),
+            // sinon la websocket resterait ouverte pendant l'arrêt
+            await this.client.destroy();
+            this.logger.info('✅ Déconnexion Discord réussie', 'shutdown');
 
+            this.logger.info('⏳ Fermeture de la connexion DB...', 'shutdown');
+
+            // Les logs partent en base en arrière-plan : on attend qu'ils soient écrits
+            // avant de fermer le pool, sinon les logs d'arrêt sont perdus ("Pool is closed")
+            await this.logger.flush();
             await this.services.database.close();
-            this.logger.info('✅ Connexion DB fermée', 'shutdown');
 
+            // Après fermeture du pool, ces logs ne sont plus qu'en console
+            this.logger.info('✅ Connexion DB fermée', 'shutdown');
             this.logger.success('✅ Arrêt propre du bot terminé', 'shutdown');
         } catch (error) {
             this.logger.error('❌ Erreur lors de l\'arrêt du bot', 'shutdown', error);

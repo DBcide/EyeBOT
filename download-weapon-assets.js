@@ -18,24 +18,33 @@ async function downloadImage(url, filepath) {
         fs.mkdirSync(dir, { recursive: true });
 
         const file = fs.createWriteStream(filepath);
+
+        // Ferme le fichier et le supprime : sinon un PNG vide/corrompu reste sur le disque
+        const fail = (err, response) => {
+            if (response) response.resume(); // libère la socket HTTP
+            file.close(() => fs.unlink(filepath, () => {}));
+            reject(err);
+        };
+
         https.get(url, (response) => {
             if (response.statusCode === 301 || response.statusCode === 302) {
-                // Handle redirect
+                response.resume();
                 https.get(response.headers.location, (redirectResponse) => {
+                    if (redirectResponse.statusCode !== 200) {
+                        fail(new Error(`Failed to download: ${url} (${redirectResponse.statusCode})`), redirectResponse);
+                        return;
+                    }
                     redirectResponse.pipe(file);
                     file.on('finish', () => {
                         file.close();
                         resolve();
                     });
-                }).on('error', (err) => {
-                    fs.unlink(filepath, () => {});
-                    reject(err);
-                });
+                }).on('error', (err) => fail(err));
                 return;
             }
 
             if (response.statusCode !== 200) {
-                reject(new Error(`Failed to download: ${url} (${response.statusCode})`));
+                fail(new Error(`Failed to download: ${url} (${response.statusCode})`), response);
                 return;
             }
 
@@ -44,10 +53,7 @@ async function downloadImage(url, filepath) {
                 file.close();
                 resolve();
             });
-        }).on('error', (err) => {
-            fs.unlink(filepath, () => {}); // Delete the file on error
-            reject(err);
-        });
+        }).on('error', (err) => fail(err));
     });
 }
 

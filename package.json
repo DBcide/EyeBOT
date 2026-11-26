@@ -15,6 +15,9 @@
     "migrate:list": "ts-node src/scripts/list-migrations.ts",
     "download:assets": "node download-weapon-assets.js"
   },
+  "engines": {
+    "node": ">=18"
+  },
   "author": "Olivier Français (DBcide)",
   "license": "ISC",
   "dependencies": {

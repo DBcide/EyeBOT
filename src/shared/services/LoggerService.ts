@@ -61,6 +61,7 @@
  */
 export class LoggerService {
     private databaseService: DatabaseService | null = null;
+    private readonly pendingWrites = new Set<Promise<void>>();
 
     /**
      * Couleurs ANSI pour la console
@@ -105,6 +106,36 @@ export class LoggerService {
      */
     public setDatabaseService(databaseService: DatabaseService): void {
         this.databaseService = databaseService;
+    }
+
+    /**
+     * Attend la fin de toutes les écritures en base encore en cours
+     *
+     * @returns Promise résolue quand toutes les écritures sont terminées (succès ou échec)
+     *
+     * @remarks
+     * Les logs sont écrits en "fire-and-forget". À l'arrêt, il faut appeler flush()
+     * AVANT DatabaseService.close(), sinon les derniers logs (ceux de l'arrêt) sont
+     * perdus avec une erreur "Pool is closed".
+     */
+    public async flush(): Promise<void> {
+        while (this.pendingWrites.size > 0) {
+            await Promise.allSettled([...this.pendingWrites]);
+        }
+    }
+
+    /**
+     * Lance une écriture en base en arrière-plan en la suivant pour flush()
+     */
+    private queueDatabaseWrite(
+        level: 'debug' | 'info' | 'warn' | 'error' | 'success',
+        category: string,
+        message: string,
+        context?: any
+    ): void {
+        const write = this.writeToDatabase(level, category, message, context).catch(() => {});
+        this.pendingWrites.add(write);
+        void write.finally(() => this.pendingWrites.delete(write));
     }
 
     /**
@@ -158,6 +189,37 @@ export class LoggerService {
     }
 
     /**
+     * Sérialise une valeur en JSON sans jamais lever d'exception
+     *
+     * @param value - La valeur à sérialiser
+     * @param indent - Indentation optionnelle (pour l'affichage console)
+     * @returns Le JSON, ou une représentation texte si la sérialisation échoue
+     *
+     * @remarks
+     * JSON.stringify lève une erreur sur les références circulaires (objets discord.js,
+     * erreurs HTTP…) et sur les BigInt. Un logger ne doit jamais faire planter l'appelant.
+     */
+    private safeStringify(value: unknown, indent?: number): string {
+        const seen = new WeakSet<object>();
+        try {
+            return JSON.stringify(
+                value,
+                (_key, val) => {
+                    if (typeof val === 'bigint') return val.toString();
+                    if (typeof val === 'object' && val !== null) {
+                        if (seen.has(val)) return '[Circular]';
+                        seen.add(val);
+                    }
+                    return val;
+                },
+                indent
+            );
+        } catch {
+            return JSON.stringify(String(value));
+        }
+    }
+
+    /**
      * Écrit un log dans la table system_logs (écriture asynchrone)
      *
      * @param level - Niveau de log (correspond à l'ENUM de la colonne level)
@@ -207,8 +269,8 @@ export class LoggerService {
         message: string,
         context?: any
     ): Promise<void> {
-        // Si la base de données n'est pas initialisée, on skip silencieusement
-        if (!this.databaseService) {
+        // Pas de DB configurée, ou pool déjà fermé (arrêt en cours) : console uniquement
+        if (!this.databaseService || this.databaseService.isClosed()) {
             return;
         }
 
@@ -221,7 +283,7 @@ export class LoggerService {
                 level,
                 category,
                 message,
-                context ? JSON.stringify(context) : null,
+                context !== undefined && context !== null ? this.safeStringify(context) : null,
             ];
             await this.databaseService.insert(sql, values);
         } catch (error) {
@@ -267,7 +329,7 @@ export class LoggerService {
      */
     public info(message: string, category: string = 'general', context?: any): void {
         console.log(this.formatMessage('INFO', this.colors.blue, message));
-        this.writeToDatabase('info', category, message, context).catch(() => {});
+        this.queueDatabaseWrite('info', category, message, context);
     }
 
     /**
@@ -304,7 +366,7 @@ export class LoggerService {
      */
     public success(message: string, category: string = 'general', context?: any): void {
         console.log(this.formatMessage('SUCCESS', this.colors.green, message));
-        this.writeToDatabase('success', category, message, context).catch(() => {});
+        this.queueDatabaseWrite('success', category, message, context);
     }
 
     /**
@@ -342,7 +404,7 @@ export class LoggerService {
      */
     public warn(message: string, category: string = 'general', context?: any): void {
         console.warn(this.formatMessage('WARN', this.colors.yellow, message));
-        this.writeToDatabase('warn', category, message, context).catch(() => {});
+        this.queueDatabaseWrite('warn', category, message, context);
     }
 
     /**
@@ -406,12 +468,12 @@ export class LoggerService {
                     name: error.name,
                 };
             } else {
-                console.error(`${this.colors.red}${JSON.stringify(error, null, 2)}${this.colors.reset}`);
+                console.error(`${this.colors.red}${this.safeStringify(error, 2)}${this.colors.reset}`);
                 context = error;
             }
         }
 
-        this.writeToDatabase('error', category, message, context).catch(() => {});
+        this.queueDatabaseWrite('error', category, message, context);
     }
 
     /**
@@ -468,10 +530,10 @@ export class LoggerService {
         console.log(formattedMessage);
 
         if (data) {
-            console.log(`${this.colors.dim}${JSON.stringify(data, null, 2)}${this.colors.reset}`);
+            console.log(`${this.colors.dim}${this.safeStringify(data, 2)}${this.colors.reset}`);
         }
 
-        this.writeToDatabase('debug', category, message, data).catch(() => {});
+        this.queueDatabaseWrite('debug', category, message, data);
     }
 
     /**
