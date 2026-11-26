@@ -1,6 +1,6 @@
 import { Client } from 'discord.js';
 import { LoggerService } from './LoggerService';
-import os from 'os';
+import os from 'node:os';
 
 /**
  * Interface pour les métriques système
@@ -69,7 +69,7 @@ export interface DiscordMetrics {
  * @see CLAUDE.md - Section "Health Monitoring" pour détails d'implémentation
  */
 export class HealthMonitorService {
-    private logger: LoggerService;
+    private readonly logger: LoggerService;
     private client?: Client;
     private intervalId?: NodeJS.Timeout;
     private heartbeatIntervalId?: NodeJS.Timeout;
@@ -79,11 +79,13 @@ export class HealthMonitorService {
     private readonly HEARTBEAT_URL?: string;
     private readonly MAX_MEMORY_MB: number;
 
-    private startTime: Date;
+    // Métriques de démarrage pour calculer les deltas
+    private readonly startTime: Date;
     private previousCpuUsage: NodeJS.CpuUsage;
 
-    private metricsHistory: SystemMetrics[] = [];
-    private readonly MAX_HISTORY_SIZE = 60;
+    // Historique des métriques (dernières 10 minutes)
+    private readonly metricsHistory: SystemMetrics[] = [];
+    private readonly MAX_HISTORY_SIZE = 60; // 60 entrées * 10 secondes = 10 minutes
 
     private readonly MAX_HEARTBEAT_RETRIES = 3;
     private readonly HEARTBEAT_RETRY_BASE_DELAY_MS = 1000;

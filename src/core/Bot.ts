@@ -12,9 +12,14 @@ import { BaseEvent } from './BaseEvent';
 import { LoggerService } from '../shared/services/LoggerService';
 import { ServiceContainer } from '../shared/services/ServiceContainer';
 import { HealthMonitorService } from '../shared/services/HealthMonitorService';
+<<<<<<< HEAD
 import { commonI18n } from '../shared/i18n';
 import fs from 'fs';
 import path from 'path';
+=======
+import fs from 'node:fs';
+import path from 'node:path';
+>>>>>>> fc702880329b712be25dc0220687c57c247aaf1a
 
 /**
  * Classe principale du bot qui gère l'initialisation et l'orchestration
@@ -26,9 +31,9 @@ import path from 'path';
 export class Bot {
     public client: Client;
     public commands: Collection<string, BaseCommand>;
-    private logger: LoggerService;
-    private services: ServiceContainer;
-    private healthMonitor: HealthMonitorService;
+    private readonly logger: LoggerService;
+    private readonly services: ServiceContainer;
+    private readonly healthMonitor: HealthMonitorService;
 
     /**
      * Crée une nouvelle instance du bot

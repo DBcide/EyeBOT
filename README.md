@@ -33,9 +33,9 @@
 
 Before installing EyeBOT, ensure you have:
 
-- **Node.js** v18 or higher ([Download](https://nodejs.org/)) — required by discord.js 14 and the global `fetch` used for the Albion API
+- **Node.js** v16 or higher ([Download](https://nodejs.org/))
 - **npm** (comes with Node.js)
-- **MySQL** v5.7 or higher ([Download](https://dev.mysql.com/downloads/mysql/))
+- **MySQL / MariaDB** ([Download](https://dev.mysql.com/downloads/mysql/))
 - **Discord Bot Token** ([Create a bot](https://discord.com/developers/applications))
 - **Git** (optional, for cloning)
 
@@ -221,10 +221,75 @@ npm run migrate:rollback     # Rollback last migration
 npm run migrate:list         # List executed migrations
 ```
 
+### Tests
+```bash
+npm test                  # Run all tests
+npm run test:coverage     # Run tests with LCOV coverage report (used by SonarCloud)
+```
+
 ### Discord
 ```bash
 npm run register     # Register slash commands with Discord API
 ```
+
+---
+
+## Testing
+
+EyeBOT has a full test suite built with **Jest** and `ts-jest` (TypeScript support).
+
+### Test Structure
+
+Tests are organized to mirror the `src/` directory layout:
+
+```
+tests/
+├── features/
+│   └── tracer/
+│       ├── commands/
+│       │   ├── RegisterCommand.test.ts
+│       │   ├── UpdateAllCommand.test.ts
+│       │   ├── UpdateCommand.test.ts
+│       │   └── VerifyCommand.test.ts
+│       ├── services/
+│       │   ├── AlbionService.test.ts
+│       │   └── TracerService.test.ts
+│       └── utils/
+│           ├── DiscordUtils.test.ts
+│           ├── EmbedBuilders.test.ts   # Snapshot tests
+│           ├── ErrorHandlers.test.ts
+│           └── GuildUtils.test.ts
+└── shared/
+    └── services/
+        ├── DatabaseService.test.ts
+        └── LoggerService.test.ts
+```
+
+### What Is Tested
+
+| Module | Covered |
+|--------|---------|
+| `RegisterCommand` | Registration flow, duplicate detection, collector timeout |
+| `UpdateAllCommand` | Bulk update, permission guard, batch processing |
+| `UpdateCommand` | Single update, multi-character selector, API errors |
+| `VerifyCommand` | Verification flow, owner guard, DM notification |
+| `AlbionService` | API search, player details, fame formatting, error codes |
+| `TracerService` | All DB operations, conflict detection, character helpers |
+| `DiscordUtils` | Nickname update, guild tag formatting |
+| `EmbedBuilders` | Snapshot tests for all embed builders |
+| `ErrorHandlers` | Error type detection, localized messages |
+| `GuildUtils` | Acronym extraction, fallback truncation |
+| `DatabaseService` | CRUD, transactions, connection pool |
+| `LoggerService` | All log levels, formatting, debug mode |
+
+### Conventions
+
+- `[positif]` labels mark happy-path cases; `[extrême]` labels mark edge cases and error scenarios.
+- All external dependencies (Discord.js, mysql2, Albion API HTTP calls) are mocked at the module level.
+- Snapshot tests for Discord embeds live in `tests/features/tracer/utils/__snapshots__/`. Update them intentionally with:
+  ```bash
+  npx jest --updateSnapshot
+  ```
 
 ---
 
@@ -352,8 +417,18 @@ EyeBOT/
 │   │
 │   └── index.ts               # Entry point
 │
+├── tests/                     # Test suite (mirrors src/ structure)
+│   ├── features/
+│   │   └── tracer/
+│   │       ├── commands/      # Command handler tests
+│   │       ├── services/      # Service layer tests
+│   │       └── utils/         # Utility tests (incl. snapshots)
+│   └── shared/
+│       └── services/          # Shared service tests
+│
 ├── dist/                      # Compiled JavaScript (generated)
 ├── .env                       # Environment variables (not in git)
+├── jest.config.js             # Jest test configuration
 ├── package.json
 ├── tsconfig.json
 └── README.md                  # This file
@@ -510,19 +585,38 @@ every `fr.json`, then `npm run build` (it lists missing keys) and `npm run regis
    pm2 delete eyebot    # Remove from PM2
    ```
 
-### O2Switch Hosting
+### Versioning
 
-For O2Switch Node.js hosting:
+This project follows **Semantic Versioning (SemVer)** — format `MAJOR.MINOR.PATCH`:
 
-1. **Enable health monitoring** in `.env`:
-   ```env
-   HEARTBEAT_URL=https://your-domain.com/heartbeat
-   HEARTBEAT_INTERVAL_MS=60000
-   ```
+| Segment | When to increment | Example |
+|---------|-------------------|---------|
+| **MAJOR** | Breaking change — old code would break on the new version | `1.0.0` → `2.0.0` |
+| **MINOR** | New backward-compatible feature | `1.0.0` → `1.1.0` |
+| **PATCH** | Bug fix or minor correction | `1.0.0` → `1.0.1` |
 
-2. **Use PM2** to keep the bot running
+**Database changes:**
+- Adding a nullable column or a new table → **MINOR**
+- Removing/renaming a column or changing its type → **MAJOR**
 
-3. The heartbeat will prevent the host from shutting down idle processes
+The rule: if the previous version of the code can still run against the new database without crashing → MINOR. If it would crash → MAJOR.
+
+### CI/CD (GitHub Actions)
+
+The project uses a two-workflow CI/CD pipeline:
+
+- **CI** (`ci.yml`): Automatically triggered on every push and PR to `main`. Runs `npm ci` + `npm run build` to validate the TypeScript compiles correctly. PRs cannot be merged if this check fails.
+
+- **Release & Deploy** (`release.yml`): Manually triggered via GitHub Actions UI. Enter the version number (e.g. `1.1.0`) and the workflow will:
+  1. Create a git tag and GitHub Release
+  2. Pull the latest code on the production server
+  3. Build and restart the bot via PM2
+
+**Release workflow:**
+1. Merge all features to `main` via PRs
+2. Update `version` in `package.json` in a final PR
+3. Go to **Actions → Release & Deploy → Run workflow** and enter the version
+4. The bot restarts automatically in production
 
 ---
 
@@ -594,7 +688,7 @@ For issues, questions, or feature requests:
 
 - **discord.js** - Discord API wrapper
 - **Albion Online** - Game data API
-- **O2Switch** - Node.js hosting platform
+- **OVH** - VPS hosting platform
 
 ---
 

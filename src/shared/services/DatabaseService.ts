@@ -20,8 +20,8 @@ import { LoggerService } from './LoggerService';
  * - DB_NAME (défaut: eyebot)
  */
 export class DatabaseService {
-    private pool: mysql.Pool;
-    private logger: LoggerService;
+    private readonly pool: mysql.Pool;
+    private readonly logger: LoggerService;
     private isConnected: boolean = false;
     private closed: boolean = false;
     private connectionPromise?: Promise<void>;

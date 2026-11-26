@@ -33,11 +33,16 @@ export default class VerifyCommand extends BaseCommand {
     /** ID Discord du propriétaire du bot, seul autorisé à vérifier un personnage */
     private readonly OWNER_ID = '506045516421791744';
 
-    constructor() {
+    constructor(tracerService?: TracerService, logger?: LoggerService) {
         super();
-        const services = ServiceContainer.getInstance();
-        this.logger = services.logger;
-        this.tracerService = new TracerService();
+        if (tracerService && logger) {
+            this.tracerService = tracerService;
+            this.logger = logger;
+        } else {
+            const services = ServiceContainer.getInstance();
+            this.logger = logger ?? services.logger;
+            this.tracerService = tracerService ?? new TracerService();
+        }
     }
 
     /**
@@ -145,8 +150,9 @@ export default class VerifyCommand extends BaseCommand {
                     'tracer'
                 );
             } catch (dmError) {
+                const errorMessage = dmError instanceof Error ? dmError.message : String(dmError);
                 this.logger.warn(
-                    `Impossible d'envoyer un DM à l'utilisateur ${targetUserId} - Peut-être ses DMs sont fermés`,
+                    `Impossible d'envoyer un DM à l'utilisateur ${targetUserId} - Peut-être ses DMs sont fermés : ${errorMessage}`,
                     'tracer'
                 );
             }

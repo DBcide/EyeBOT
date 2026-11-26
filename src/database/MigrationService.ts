@@ -1,7 +1,6 @@
 import { DatabaseService } from '../shared/services/DatabaseService';
 import { LoggerService } from '../shared/services/LoggerService';
 import { Migration } from './Migration';
-import mysql from 'mysql2/promise';
 
 /**
  * Service de gestion des migrations de base de données avec tracking et rollback
@@ -49,8 +48,8 @@ import mysql from 'mysql2/promise';
  * @see src/database/migrations/index.ts - Liste ordonnée des migrations
  */
 export class MigrationService {
-    private db: DatabaseService;
-    private logger: LoggerService;
+    private readonly db: DatabaseService;
+    private readonly logger: LoggerService;
 
     /**
      * Crée une instance du service de migrations

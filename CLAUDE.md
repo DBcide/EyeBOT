@@ -22,6 +22,12 @@ npm run clean          # Clean dist/ directory (Windows-specific)
 npm run register       # Register slash commands with Discord API
 ```
 
+### Tests
+```bash
+npm test                   # Run all tests
+npm run test:coverage      # Run tests with LCOV coverage report (used by SonarCloud)
+```
+
 ### Database Migrations
 ```bash
 npm run migrate                # Run all pending migrations
@@ -275,6 +281,147 @@ const currentMetrics = bot['healthMonitor'].getCurrentMetrics();
 const avgMetrics = bot['healthMonitor'].getAverageMetrics();
 ```
 
+## Testing
+
+### Framework
+
+Tests use **Jest** with `ts-jest` for TypeScript support.
+
+- Config: `jest.config.js` — preset `ts-jest`, environment `node`, roots in `tests/`
+- Path alias `@/` maps to `src/` in tests
+- Coverage reports: `lcov` (for SonarCloud), `text`, `text-summary`
+
+### Structure
+
+Tests mirror the `src/` directory layout:
+
+```
+tests/
+├── features/
+│   └── tracer/
+│       ├── commands/        # RegisterCommand, UpdateAllCommand, UpdateCommand, VerifyCommand
+│       ├── services/        # AlbionService, TracerService
+│       └── utils/           # DiscordUtils, EmbedBuilders (snapshots), ErrorHandlers, GuildUtils
+└── shared/
+    └── services/            # DatabaseService, LoggerService
+```
+
+### Conventions
+
+- Test descriptions use `[positif]` for happy paths and `[extrême]` for edge cases/errors.
+- External dependencies (Discord.js, mysql2, Albion API) are always mocked at the module level.
+- `EmbedBuilders.test.ts` uses **Jest snapshot testing** — run `jest --updateSnapshot` to update snapshots intentionally.
+
+### Coverage Exclusions
+
+The following are excluded from coverage (thin wrappers or tightly coupled to Discord runtime):
+
+- `src/index.ts`, `src/scripts/**`
+- `src/core/Bot.ts`, `src/core/BaseCommand.ts`, `src/core/BaseEvent.ts`
+- `src/shared/services/HealthMonitorService.ts`, `src/shared/services/ServiceContainer.ts`
+- `src/database/migrations/**`, `src/database/MigrationService.ts`
+
 ## Windows Compatibility Note
 
 The project includes Windows-specific commands (e.g., `npm run clean` uses `rmdir /S /Q`). When adding new file operations in package.json scripts, ensure Windows compatibility or use cross-platform tools.
+
+### Cross-platform `package-lock.json`
+
+`package-lock.json` is generated on the **Linux production server** (not on the Windows dev machine) to ensure it includes Linux-specific optional dependencies (e.g. `@emnapi/*`). This allows `npm ci --ignore-scripts` to work identically on the CI runner and the prod server.
+
+**When adding new dependencies:** run `npm install` locally to update `package.json`, push the change, then SSH into the prod server and run `npm install --ignore-scripts` on the `fix/linux-lockfile` branch to regenerate the lock file for Linux before merging.
+
+## CI/CD Pipeline
+
+### Workflows (.github/workflows/)
+
+- **ci.yml** — Triggered on every push/PR to `main` and `develop`. Runs on GitHub-hosted `ubuntu-latest`. Steps: `npm install` + `npm run build` + `npm run test:coverage` + SonarCloud scan. Must pass before merging. Uses `npm install` instead of `npm ci` due to cross-platform lock file incompatibilities (Windows dev machine → Linux CI). Uses `fetch-depth: 0` on checkout so SonarCloud has full git history for SCM blame.
+- **release.yml** — Triggered manually via `workflow_dispatch`. Runs on the **self-hosted runner** (OVH VPS). Steps: create git tag → create GitHub Release → `git fetch + git reset --hard origin/main` → `npm ci --ignore-scripts` → `npm run build` → `npm prune --omit=dev` → `pm2 restart eyebot`.
+
+### Security: pin GitHub Actions to full commit SHA
+Never use mutable tags (`@v4`, `@v2`) for GitHub Actions dependencies — the tag can be moved to malicious code. Always pin to the full commit SHA with the version as a comment:
+```yaml
+uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4
+```
+
+### Versioning workflow (no CLI required)
+1. Update `version` in `package.json` in a PR and merge to `main`
+2. Go to GitHub → Actions → Release & Deploy → Run workflow → enter version (e.g. `1.1.0`)
+3. The workflow creates the git tag, GitHub Release, and deploys to prod automatically
+
+Version format: `MAJOR.MINOR.PATCH` — left = most impactful change.
+
+### Branch protection on `main`
+- All changes to `main` must go through a PR
+- `Build & Type Check` CI status check must pass
+- Force pushes blocked
+- The CI workflow (`ci.yml`) runs on `ubuntu-latest` (GitHub-hosted), NOT on the self-hosted runner — this avoids supply chain risks from fork PRs on a public repo
+
+### Required GitHub secrets
+- `PAT_TOKEN` — Personal Access Token with `repo` scope, used by the release workflow to push git tags to the protected `main` branch
+
+## Production Server (OVH VPS)
+
+- **OS**: Debian 12 (Trixie)
+- **Location**: `~/eyebot/`
+- **Process manager**: PM2 (`pm2 restart eyebot`, `pm2 logs eyebot`)
+- **SSH port**: 52855 (non-default, configured per OVH security guide)
+- **Database**: MariaDB, user `eyebot`, database `eyebot`
+- **GitHub Actions runner**: self-hosted, installed at `~/actions-runner/`, running as systemd service
+- **Node.js**: v22 via nvm (`~/.nvm`)
+- **Migrations**: run manually — no automated migration in CI/CD until a database backup system is in place
+
+## Code Quality Rules (SonarCloud)
+
+This project uses SonarCloud (free tier, public repo) for automatic analysis on every push/PR to `main`.
+
+### Patterns to follow
+
+**Always mark class members as `readonly` if never reassigned:**
+```typescript
+private readonly logger: LoggerService;
+private readonly services: ServiceContainer;
+```
+
+**Use optional chaining instead of double null checks:**
+```typescript
+// Wrong
+if (!error || !error.message) { ... }
+// Correct
+if (!error?.message) { ... }
+```
+
+**Avoid negated conditions with else — put positive case first:**
+```typescript
+// Wrong
+if (!response.ok) { warn(...) } else { debug(...) }
+// Correct
+if (response.ok) { debug(...) } else { warn(...) }
+```
+
+**Always handle caught exceptions — include the error in the log:**
+```typescript
+// Wrong
+} catch (dmError) {
+    this.logger.warn('Could not send DM');
+}
+// Correct
+} catch (dmError) {
+    const errorMessage = dmError instanceof Error ? dmError.message : String(dmError);
+    this.logger.warn(`Could not send DM: ${errorMessage}`);
+}
+```
+
+**Keep function nesting ≤ 4 levels deep** — extract callbacks into named functions.
+
+**Keep cognitive complexity ≤ 15 per function** — extract complex conditions and loops into smaller functions.
+
+**Never add redundant type assertions** on discord.js builder chains — TypeScript already infers the correct type:
+```typescript
+// Wrong
+return new SlashCommandBuilder().setName(this.name).setDescription(this.description) as SlashCommandBuilder;
+// Correct
+return new SlashCommandBuilder().setName(this.name).setDescription(this.description);
+```
+
+Note: `logger.warn()` only accepts a single `string` parameter. `logger.error()` accepts `(message: string, error?: any)`.

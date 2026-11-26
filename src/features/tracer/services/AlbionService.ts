@@ -28,7 +28,7 @@ import { formatFame } from '../utils/FameUtils';
 export class AlbionService {
     private readonly API_BASE_URL = 'https://gameinfo-ams.albiononline.com/api/gameinfo';
     private readonly TIMEOUT_MS = 10000;
-    private logger: LoggerService;
+    private readonly logger: LoggerService;
 
     /**
      * Crée une instance du service Albion API

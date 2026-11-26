@@ -1,4 +1,4 @@
-import { Guild, GuildMember } from 'discord.js';
+import { Guild } from 'discord.js';
 import { LoggerService } from '../../../shared/services/LoggerService';
 import { buildGuildTag } from './GuildUtils';
 
