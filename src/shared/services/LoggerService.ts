@@ -461,11 +461,20 @@ export class LoggerService {
         let context: any = null;
         if (error) {
             if (error instanceof Error) {
+                // Erreurs MySQL : code (ER_DUP_ENTRY...) et requête rattachée par DatabaseService.query()
+                const { code, sql } = error as Error & { code?: string; sql?: string };
+
                 console.error(`${this.colors.red}${error.stack}${this.colors.reset}`);
+                if (sql) {
+                    console.error(`${this.colors.red}SQL: ${sql}${this.colors.reset}`);
+                }
+
                 context = {
                     message: error.message,
                     stack: error.stack,
                     name: error.name,
+                    ...(code ? { code } : {}),
+                    ...(sql ? { sql } : {}),
                 };
             } else {
                 console.error(`${this.colors.red}${this.safeStringify(error, 2)}${this.colors.reset}`);

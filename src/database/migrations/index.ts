@@ -5,6 +5,7 @@ import { RemoveUniqueConstraintAlbionId } from './20260122_000003_remove_unique_
 import { CreateCommandLogsTable } from './20260326_000004_create_command_logs_table';
 import { CreateSystemLogsTable } from './20260326_000005_create_system_logs_table';
 import { CreateEventLogsTable } from './20260326_000006_create_event_logs_table';
+import { CreateUserPreferencesTable } from './20261126_000007_create_user_preferences_table';
 
 /**
  * Liste de toutes les migrations dans l'ordre chronologique
@@ -17,4 +18,5 @@ export const migrations: Migration[] = [
     CreateCommandLogsTable,
     CreateSystemLogsTable,
     CreateEventLogsTable,
+    CreateUserPreferencesTable,
 ];

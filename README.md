@@ -158,10 +158,14 @@ npm run build
 
 ### 8. Start the Bot
 
-**Development Mode** (with auto-reload):
+**Development Mode** (runs TypeScript directly, no auto-reload):
 ```bash
 npm run dev
 ```
+
+While the bot runs in a terminal (`npm run dev` or `npm start`), type `exit` (or `stop` / `quit`)
+then Enter for a clean shutdown (same as Ctrl+C), or `help` to list console commands.
+Console commands are disabled under PM2 (no interactive terminal).
 
 **Production Mode**:
 ```bash
@@ -181,9 +185,10 @@ pm2 start ecosystem.config.js
 
 | Command | Description | Example |
 |---------|-------------|---------|
-| `/register <pseudo>` | Register your Albion Online character | `/register MyCharName` |
+| `/register <pseudo>` | Register your Albion Online character (if it is already linked to your account, it is updated like `/update` — useful when joining another server using EyeBOT) | `/register MyCharName` |
 | `/update` | Update your character information from Albion API | `/update` |
 | `/verify <character>` | Verify a character (admin only) | `/verify PlayerName` |
+| `/language <language>` | Choose the bot's reply language (or "Automatic" to follow your Discord language) | `/language English` |
 
 ### Admin Commands
 
@@ -301,7 +306,7 @@ User-Agent: EyeBOT-HealthMonitor/1.0
 Metrics are logged every 10 seconds (configurable):
 
 ```
-📊 Health | CPU: 12.34% | RAM: 45.67% | Heap: 89.12 MB/256.00 MB | Uptime: 1h 23m 45s | Guilds: 5 | Users: 1250 | Ping: 45ms
+Health | CPU: 12.34% | RAM: 45.67% | Heap: 89.12 MB/256.00 MB | Uptime: 1h 23m 45s | Guilds: 5 | Users: 1250 | Ping: 45ms
 ```
 
 **Alerts are triggered when:**
@@ -376,6 +381,31 @@ Stores Albion Online character registrations.
 | `is_verified` | TINYINT(1) | Verification status |
 | `registered_at` | TIMESTAMP | Registration timestamp |
 | `updated_at` | TIMESTAMP | Last update timestamp |
+
+### `user_preferences` Table
+
+Stores the language chosen with `/language` (no row = automatic mode).
+
+| Column | Type | Description |
+|--------|------|-------------|
+| `discord_id` | VARCHAR(20) (PK) | Discord user ID |
+| `locale` | VARCHAR(10) | Language code (`fr`, `en`) |
+| `created_at` / `updated_at` | TIMESTAMP | Timestamps |
+
+---
+
+## Translations
+
+EyeBOT answers each user in their language: the language chosen with `/language`, otherwise the
+language of their Discord client, otherwise French.
+
+- Texts live in JSON files, per feature: `src/features/<feature>/locales/<lang>.json`
+  (and `src/shared/i18n/locales/` for common texts). `fr.json` is the reference.
+- Translation keys are checked by TypeScript: a typo or a key missing in a language fails the build.
+- Slash command descriptions are also translated by Discord itself (description localizations).
+
+**Add a language:** add it to `LOCALES` in `src/shared/i18n/locales.ts`, add a `<code>.json` file next to
+every `fr.json`, then `npm run build` (it lists missing keys) and `npm run register`.
 
 ---
 

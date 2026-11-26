@@ -146,6 +146,17 @@ Ajoute la colonne `is_verified` (BOOLEAN, défaut: 0) pour le système de vérif
 - `is_verified = false` : Le compte peut être lié à plusieurs comptes Discord
 - `is_verified = true` : Le compte est vérifié et lié à un seul propriétaire
 
+### 3 à 6. Contrainte `albion_id` et tables de logs
+
+- `20260122_000003` : suppression de l'index UNIQUE sur `albion_id` (multi-revendications)
+- `20260326_000004` à `000006` : tables `command_logs`, `system_logs`, `event_logs`
+
+### 7. `20261126_000007_create_user_preferences_table`
+
+Crée la table `user_preferences` (`discord_id` PK, `locale`) qui stocke la langue choisie
+avec `/language`. Les textes traduits ne sont pas en base : ils sont dans les fichiers
+`locales/<langue>.json` de chaque feature.
+
 ## Bonnes pratiques
 
 1. **Toujours tester les migrations en développement** avant de les exécuter en production

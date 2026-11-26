@@ -51,16 +51,11 @@ export class TracerService {
      * ```
      */
     public async isUserRegistered(discordId: string): Promise<boolean> {
-        try {
-            const users = await this.db.select<TracerUser>(
-                'SELECT * FROM tracer_users WHERE discord_id = ?',
-                [discordId]
-            );
-            return users.length > 0;
-        } catch (error) {
-            this.logger.error('Erreur lors de la vérification de l\'enregistrement', 'tracer', error);
-            throw error;
-        }
+        const users = await this.db.select<TracerUser>(
+            'SELECT * FROM tracer_users WHERE discord_id = ?',
+            [discordId]
+        );
+        return users.length > 0;
     }
 
     /**
@@ -75,15 +70,10 @@ export class TracerService {
      * Inclut les personnages vérifiés ET non vérifiés.
      */
     public async getRegisteredUsers(discordId: string): Promise<TracerUser[]> {
-        try {
-            return await this.db.select<TracerUser>(
-                'SELECT * FROM tracer_users WHERE discord_id = ? ORDER BY registered_at',
-                [discordId]
-            );
-        } catch (error) {
-            this.logger.error('Erreur lors de la récupération des utilisateurs', 'tracer', error);
-            throw error;
-        }
+        return await this.db.select<TracerUser>(
+            'SELECT * FROM tracer_users WHERE discord_id = ? ORDER BY registered_at',
+            [discordId]
+        );
     }
 
     /**
@@ -98,15 +88,10 @@ export class TracerService {
      * Pour récupérer tous les claims, utilisez getAllClaimsForCharacter().
      */
     public async getRegisteredUserByAlbionId(albionId: string): Promise<TracerUser | null> {
-        try {
-            return await this.db.selectOne<TracerUser>(
-                'SELECT * FROM tracer_users WHERE albion_id = ?',
-                [albionId]
-            );
-        } catch (error) {
-            this.logger.error('Erreur lors de la récupération du personnage', 'tracer', error);
-            throw error;
-        }
+        return await this.db.selectOne<TracerUser>(
+            'SELECT * FROM tracer_users WHERE albion_id = ?',
+            [albionId]
+        );
     }
 
     /**
@@ -121,16 +106,11 @@ export class TracerService {
      * Pour vérifier si le personnage est VÉRIFIÉ, utilisez isAlbionCharacterVerified().
      */
     public async isAlbionCharacterClaimed(albionId: string): Promise<string | null> {
-        try {
-            const user = await this.db.selectOne<TracerUser>(
-                'SELECT discord_id FROM tracer_users WHERE albion_id = ?',
-                [albionId]
-            );
-            return user ? user.discord_id : null;
-        } catch (error) {
-            this.logger.error('Erreur lors de la vérification du personnage Albion', 'tracer', error);
-            throw error;
-        }
+        const user = await this.db.selectOne<TracerUser>(
+            'SELECT discord_id FROM tracer_users WHERE albion_id = ?',
+            [albionId]
+        );
+        return user ? user.discord_id : null;
     }
 
     /**
@@ -145,16 +125,11 @@ export class TracerService {
      * Les personnages vérifiés ne peuvent plus être revendiqués par d'autres.
      */
     public async isAlbionCharacterVerified(albionId: string): Promise<boolean> {
-        try {
-            const user = await this.db.selectOne<TracerUser>(
-                'SELECT is_verified FROM tracer_users WHERE albion_id = ? AND is_verified = 1',
-                [albionId]
-            );
-            return user ? user.is_verified === 1 : false;
-        } catch (error) {
-            this.logger.error('Erreur lors de la vérification du statut de vérification', 'tracer', error);
-            throw error;
-        }
+        const user = await this.db.selectOne<TracerUser>(
+            'SELECT is_verified FROM tracer_users WHERE albion_id = ? AND is_verified = 1',
+            [albionId]
+        );
+        return user ? user.is_verified === 1 : false;
     }
 
     /**
@@ -178,16 +153,11 @@ export class TracerService {
      * ```
      */
     public async isCharacterVerifiedByOther(albionId: string, currentDiscordId: string): Promise<string | null> {
-        try {
-            const user = await this.db.selectOne<TracerUser>(
-                'SELECT discord_id FROM tracer_users WHERE albion_id = ? AND is_verified = 1 AND discord_id != ?',
-                [albionId, currentDiscordId]
-            );
-            return user ? user.discord_id : null;
-        } catch (error) {
-            this.logger.error('Erreur lors de la vérification du propriétaire vérifié', 'tracer', error);
-            throw error;
-        }
+        const user = await this.db.selectOne<TracerUser>(
+            'SELECT discord_id FROM tracer_users WHERE albion_id = ? AND is_verified = 1 AND discord_id != ?',
+            [albionId, currentDiscordId]
+        );
+        return user ? user.discord_id : null;
     }
 
     /**
@@ -203,15 +173,10 @@ export class TracerService {
      * Permet de décider entre INSERT (nouveau) ou UPDATE (mise à jour).
      */
     public async getUserRegistrationForCharacter(discordId: string, albionId: string): Promise<TracerUser | null> {
-        try {
-            return await this.db.selectOne<TracerUser>(
-                'SELECT * FROM tracer_users WHERE discord_id = ? AND albion_id = ?',
-                [discordId, albionId]
-            );
-        } catch (error) {
-            this.logger.error('Erreur lors de la récupération de l\'enregistrement utilisateur', 'tracer', error);
-            throw error;
-        }
+        return await this.db.selectOne<TracerUser>(
+            'SELECT * FROM tracer_users WHERE discord_id = ? AND albion_id = ?',
+            [discordId, albionId]
+        );
     }
 
     /**
@@ -226,16 +191,11 @@ export class TracerService {
      * Quand un personnage est vérifié, toutes les autres revendications sont supprimées.
      */
     public async countUnverifiedClaims(albionId: string): Promise<number> {
-        try {
-            const result = await this.db.selectOne<{ count: number }>(
-                'SELECT COUNT(*) as count FROM tracer_users WHERE albion_id = ? AND is_verified = 0',
-                [albionId]
-            );
-            return result?.count || 0;
-        } catch (error) {
-            this.logger.error('Erreur lors du comptage des revendications non vérifiées', 'tracer', error);
-            throw error;
-        }
+        const result = await this.db.selectOne<{ count: number }>(
+            'SELECT COUNT(*) as count FROM tracer_users WHERE albion_id = ? AND is_verified = 0',
+            [albionId]
+        );
+        return result?.count || 0;
     }
 
     /**
@@ -285,62 +245,57 @@ export class TracerService {
         albionPlayer: AlbionPlayer,
         setAsMain: boolean = false
     ): Promise<{ id: number; isUpdate: boolean }> {
-        try {
-            // Vérifier si le personnage est vérifié par quelqu'un d'autre
-            const verifiedOwner = await this.isCharacterVerifiedByOther(albionPlayer.Id, discordId);
-            if (verifiedOwner) {
-                throw new Error(`CHARACTER_VERIFIED_BY_OTHER:${verifiedOwner}`);
-            }
+        // Vérifier si le personnage est vérifié par quelqu'un d'autre
+        const verifiedOwner = await this.isCharacterVerifiedByOther(albionPlayer.Id, discordId);
+        if (verifiedOwner) {
+            throw new Error(`CHARACTER_VERIFIED_BY_OTHER:${verifiedOwner}`);
+        }
 
-            // Vérifier si l'utilisateur a déjà enregistré ce personnage
-            const existingRegistration = await this.getUserRegistrationForCharacter(discordId, albionPlayer.Id);
+        // Vérifier si l'utilisateur a déjà enregistré ce personnage
+        const existingRegistration = await this.getUserRegistrationForCharacter(discordId, albionPlayer.Id);
 
-            if (existingRegistration) {
-                // UPDATE au lieu d'INSERT
-                await this.db.execute(
-                    `UPDATE tracer_users
-                    SET albion_name = ?, kill_fame = ?, death_fame = ?,
-                        guild_name = ?, alliance_name = ?, is_main = ?, updated_at = NOW()
-                    WHERE discord_id = ? AND albion_id = ?`,
-                    [
-                        albionPlayer.Name,
-                        albionPlayer.KillFame,
-                        albionPlayer.DeathFame,
-                        albionPlayer.GuildName || null,
-                        albionPlayer.AllianceName || null,
-                        setAsMain ? 1 : existingRegistration.is_main,
-                        discordId,
-                        albionPlayer.Id,
-                    ]
-                );
-
-                this.logger.success(`Personnage ${albionPlayer.Name} mis à jour pour l'utilisateur ${discordId}`, 'tracer');
-                return { id: existingRegistration.id, isUpdate: true };
-            }
-
-            // INSERT nouveau personnage
-            const insertId = await this.db.insert(
-                `INSERT INTO tracer_users
-                (discord_id, albion_id, albion_name, kill_fame, death_fame, guild_name, alliance_name, is_main)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+        if (existingRegistration) {
+            // UPDATE au lieu d'INSERT
+            await this.db.execute(
+                `UPDATE tracer_users
+                SET albion_name = ?, kill_fame = ?, death_fame = ?,
+                    guild_name = ?, alliance_name = ?, is_main = ?, updated_at = NOW()
+                WHERE discord_id = ? AND albion_id = ?`,
                 [
-                    discordId,
-                    albionPlayer.Id,
                     albionPlayer.Name,
                     albionPlayer.KillFame,
                     albionPlayer.DeathFame,
                     albionPlayer.GuildName || null,
                     albionPlayer.AllianceName || null,
-                    setAsMain ? 1 : 0,
+                    setAsMain ? 1 : existingRegistration.is_main,
+                    discordId,
+                    albionPlayer.Id,
                 ]
             );
 
-            this.logger.success(`Personnage ${albionPlayer.Name} enregistré pour l'utilisateur ${discordId}`, 'tracer');
-            return { id: insertId, isUpdate: false };
-        } catch (error) {
-            this.logger.error('Erreur lors de l\'enregistrement du personnage', 'tracer', error);
-            throw error;
+            this.logger.success(`Personnage ${albionPlayer.Name} mis à jour pour l'utilisateur ${discordId}`, 'tracer');
+            return { id: existingRegistration.id, isUpdate: true };
         }
+
+        // INSERT nouveau personnage
+        const insertId = await this.db.insert(
+            `INSERT INTO tracer_users
+            (discord_id, albion_id, albion_name, kill_fame, death_fame, guild_name, alliance_name, is_main)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+            [
+                discordId,
+                albionPlayer.Id,
+                albionPlayer.Name,
+                albionPlayer.KillFame,
+                albionPlayer.DeathFame,
+                albionPlayer.GuildName || null,
+                albionPlayer.AllianceName || null,
+                setAsMain ? 1 : 0,
+            ]
+        );
+
+        this.logger.success(`Personnage ${albionPlayer.Name} enregistré pour l'utilisateur ${discordId}`, 'tracer');
+        return { id: insertId, isUpdate: false };
     }
 
     /**
@@ -360,27 +315,22 @@ export class TracerService {
         albionId: string,
         albionPlayer: AlbionPlayer
     ): Promise<void> {
-        try {
-            await this.db.execute(
-                `UPDATE tracer_users
+        await this.db.execute(
+            `UPDATE tracer_users
         SET albion_name = ?, kill_fame = ?, death_fame = ?,
-            guild_name = ?, alliance_name = ?, updated_at = NOW()
+        guild_name = ?, alliance_name = ?, updated_at = NOW()
         WHERE albion_id = ?`,
-                [
-                    albionPlayer.Name,
-                    albionPlayer.KillFame,
-                    albionPlayer.DeathFame,
-                    albionPlayer.GuildName || null,
-                    albionPlayer.AllianceName || null,
-                    albionId,
-                ]
-            );
+            [
+                albionPlayer.Name,
+                albionPlayer.KillFame,
+                albionPlayer.DeathFame,
+                albionPlayer.GuildName || null,
+                albionPlayer.AllianceName || null,
+                albionId,
+            ]
+        );
 
-            this.logger.success(`Personnage ${albionPlayer.Name} mis à jour`, 'tracer');
-        } catch (error) {
-            this.logger.error('Erreur lors de la mise à jour du personnage', 'tracer', error);
-            throw error;
-        }
+        this.logger.success(`Personnage ${albionPlayer.Name} mis à jour`, 'tracer');
     }
 
     /**
@@ -400,27 +350,22 @@ export class TracerService {
         albionId: string,
         playerDetails: AlbionPlayerDetailed
     ): Promise<void> {
-        try {
-            await this.db.execute(
-                `UPDATE tracer_users
+        await this.db.execute(
+            `UPDATE tracer_users
       SET albion_name = ?, kill_fame = ?, death_fame = ?,
           guild_name = ?, alliance_name = ?, updated_at = NOW()
       WHERE albion_id = ?`,
-                [
-                    playerDetails.Name,
-                    playerDetails.KillFame,
-                    playerDetails.DeathFame,
-                    playerDetails.GuildName || null,
-                    playerDetails.AllianceName || null,
-                    albionId,
-                ]
-            );
+            [
+                playerDetails.Name,
+                playerDetails.KillFame,
+                playerDetails.DeathFame,
+                playerDetails.GuildName || null,
+                playerDetails.AllianceName || null,
+                albionId,
+            ]
+        );
 
-            this.logger.success(`Personnage ${playerDetails.Name} mis à jour depuis l'API`, 'tracer');
-        } catch (error) {
-            this.logger.error('Erreur lors de la mise à jour du personnage', 'tracer', error);
-            throw error;
-        }
+        this.logger.success(`Personnage ${playerDetails.Name} mis à jour depuis l'API`, 'tracer');
     }
 
     /**
@@ -435,16 +380,11 @@ export class TracerService {
      * Utile pour afficher "Vous avez X personnages enregistrés".
      */
     public async countUserCharacters(discordId: string): Promise<number> {
-        try {
-            const result = await this.db.selectOne<{ count: number }>(
-                'SELECT COUNT(*) as count FROM tracer_users WHERE discord_id = ?',
-                [discordId]
-            );
-            return result?.count || 0;
-        } catch (error) {
-            this.logger.error('Erreur lors du comptage des personnages', 'tracer', error);
-            throw error;
-        }
+        const result = await this.db.selectOne<{ count: number }>(
+            'SELECT COUNT(*) as count FROM tracer_users WHERE discord_id = ?',
+            [discordId]
+        );
+        return result?.count || 0;
     }
 
     /**
@@ -482,31 +422,26 @@ export class TracerService {
      * ```
      */
     public async verifyCharacter(discordId: string, albionId: string): Promise<void> {
+        // Transaction : si l'UPDATE échoue, les revendications supprimées sont restaurées
+        const connection = await this.db.beginTransaction();
         try {
-            // Transaction : si l'UPDATE échoue, les revendications supprimées sont restaurées
-            const connection = await this.db.beginTransaction();
-            try {
-                await connection.execute(
-                    'DELETE FROM tracer_users WHERE albion_id = ? AND discord_id != ?',
-                    [albionId, discordId]
-                );
+            await connection.execute(
+                'DELETE FROM tracer_users WHERE albion_id = ? AND discord_id != ?',
+                [albionId, discordId]
+            );
 
-                await connection.execute(
-                    'UPDATE tracer_users SET is_verified = 1, updated_at = NOW() WHERE albion_id = ? AND discord_id = ?',
-                    [albionId, discordId]
-                );
+            await connection.execute(
+                'UPDATE tracer_users SET is_verified = 1, updated_at = NOW() WHERE albion_id = ? AND discord_id = ?',
+                [albionId, discordId]
+            );
 
-                await this.db.commit(connection);
-            } catch (error) {
-                await this.db.rollback(connection);
-                throw error;
-            }
-
-            this.logger.success(`Personnage ${albionId} vérifié pour l'utilisateur ${discordId}`, 'tracer');
+            await this.db.commit(connection);
         } catch (error) {
-            this.logger.error('Erreur lors de la vérification du personnage', 'tracer', error);
+            await this.db.rollback(connection);
             throw error;
         }
+
+        this.logger.success(`Personnage ${albionId} vérifié pour l'utilisateur ${discordId}`, 'tracer');
     }
 
     /**
@@ -527,14 +462,9 @@ export class TracerService {
      * - Notifier les utilisateurs dont le claim sera supprimé lors de la vérification
      */
     public async getAllClaimsForCharacter(albionId: string): Promise<TracerUser[]> {
-        try {
-            return await this.db.select<TracerUser>(
-                'SELECT * FROM tracer_users WHERE albion_id = ? ORDER BY registered_at',
-                [albionId]
-            );
-        } catch (error) {
-            this.logger.error('Erreur lors de la récupération des revendications', 'tracer', error);
-            throw error;
-        }
+        return await this.db.select<TracerUser>(
+            'SELECT * FROM tracer_users WHERE albion_id = ? ORDER BY registered_at',
+            [albionId]
+        );
     }
 }

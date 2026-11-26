@@ -1,0 +1,11 @@
+{
+  "common": {
+    "errors": {
+      "command": "❌ Une erreur est survenue lors de l'exécution de cette commande."
+    },
+    "menu": {
+      "notForYou": "❌ Ce menu ne vous est pas destiné.",
+      "timeout": "⏱️ Temps écoulé. Veuillez réessayer la commande."
+    }
+  }
+}

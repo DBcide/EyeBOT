@@ -1,6 +1,7 @@
 ﻿import { DatabaseService } from './DatabaseService';
 import { LoggerService } from './LoggerService';
 import { DatabaseLoggingService } from './DatabaseLoggingService';
+import { LocaleService } from './LocaleService';
 
 /**
  * Conteneur de services singleton pour la gestion centralisée des dépendances
@@ -47,6 +48,8 @@ export class ServiceContainer {
     public readonly database: DatabaseService;
     public readonly logger: LoggerService;
     public readonly dbLogger: DatabaseLoggingService;
+    /** Langue des utilisateurs (préférence /language + langue du client Discord) */
+    public readonly locale: LocaleService;
 
     /**
      * Constructeur privé pour empêcher l'instanciation directe
@@ -73,6 +76,7 @@ export class ServiceContainer {
         this.logger.setDatabaseService(this.database);
 
         this.dbLogger = new DatabaseLoggingService(this.database);
+        this.locale = new LocaleService(this.database, this.logger);
     }
 
     /**

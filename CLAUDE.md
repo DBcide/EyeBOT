@@ -11,7 +11,7 @@ EyeBOT is a Discord bot built with TypeScript and discord.js v14 for the Albion 
 ### Build and Run
 ```bash
 npm run build          # Compile TypeScript to dist/
-npm run dev            # Run bot directly with ts-node (development)
+npm run dev            # Run bot directly with ts-node (development) — type "exit" to stop cleanly
 npm start              # Run compiled bot from dist/
 npm run watch          # Watch mode - recompile on changes
 npm run clean          # Clean dist/ directory (Windows-specific)
@@ -40,6 +40,11 @@ The bot uses a plugin-based architecture with automatic command/event discovery:
   - Auto-discovers events from `src/features/*/events/*.ts`
   - Handles interaction routing to appropriate command handlers
 
+- **ConsoleCommands.ts**: Terminal commands while the bot runs (`exit`/`stop`/`quit`, `help`), only when
+  stdin is a TTY. Shutdown goes through `gracefulShutdown()` in index.ts, which uses
+  `shared/utils/exitGracefully.ts` (no immediate `process.exit()`: it crashes Node on Windows
+  while sockets are closing)
+
 - **BaseCommand.ts**: Abstract class for slash commands
   - All commands must extend this and implement `name`, `description`, `buildCommand()`, and `execute()`
 
@@ -53,19 +58,59 @@ Each feature is self-contained in its own directory with the structure:
 features/
   └── tracer/              # Feature name
       ├── commands/        # Slash commands for this feature
+      ├── components/      # Select menus / buttons builders (translated)
+      ├── embeds/          # Embed builders (translated), one file per command
       ├── events/          # Discord event handlers (optional)
+      ├── handlers/        # Interaction flows shared by several commands (NOT in commands/:
+      │                    #   Bot.ts loads every file there as a slash command)
+      ├── locales/         # fr.json (reference) + one JSON per supported language
       ├── models/          # TypeScript interfaces/types
       ├── services/        # Business logic
-      └── utils/           # Feature-specific utilities
+      ├── utils/           # Feature-specific utilities
+      └── i18n.ts          # Typed translation catalog of the feature
 ```
 
-**Current feature: tracer** - Handles Albion Online character registration and verification
+**Current features:**
+- **tracer** - Albion Online character registration and verification
+- **settings** - User preferences (`/language`)
+- **system** - Discord lifecycle events (guild join/leave, client errors)
+
+### Internationalisation (src/shared/i18n/)
+
+User-facing texts never live in code: they are in `locales/<lang>.json` files, per feature.
+Only the language chosen by each user is stored in DB (`user_preferences` table).
+
+- **locales.ts**: `LOCALES` (supported languages + matching Discord locales), `DEFAULT_LOCALE` (`fr`)
+- **I18n.ts**: `I18n<T>` class — `for(locale)` returns `t(key, params)`, `default(key)`, `localizations(key)`
+- **index.ts**: common catalog (`common.*` keys) and `createFeatureI18n()` helper
+- **LocaleService** (`services.locale`): resolves the language — `/language` preference → Discord client
+  locale (`interaction.locale`) → `DEFAULT_LOCALE`. Cached in memory, never throws.
+
+Rules:
+- Keys are type-checked: `TranslationKey<T>` is derived from the `fr.json` type, so a typo is a compile error
+- Each feature declares `const catalogs: Record<Locale, Messages> = { fr, en }`: a missing language
+  or a missing key in a JSON file is a compile error
+- Placeholders use `{name}`; a JSON array value is joined with `\n` (one line per element)
+- Logs stay in French (developer-facing), only user-facing texts are translated
+
+**Adding a language**: add an entry to `LOCALES`, add `<code>.json` in `shared/i18n/locales/` and in
+each feature's `locales/`, run `npm run build` (fix reported missing keys) then `npm run register`.
+
+### Embeds and components
+
+- Embeds are built by pure functions in `features/<feature>/embeds/`: `build<Name>Embed(t, data)` → `EmbedBuilder`
+  (no DB/API access, no business logic). Inputs use view types (`CharacterView`) built by `embeds/mappers.ts`.
+- Select menus follow the same pattern in `components/`.
+- Colors come from `shared/embeds/EmbedColors.ts`; helpers (`truncateField`, `discordDate`) from `shared/embeds/EmbedUtils.ts`.
+- discord.js `EmbedBuilder` is used to build; `Embed` is the read-only class of received embeds — do not subclass either.
 
 ### Service Layer (src/shared/services/)
 
 - **ServiceContainer.ts**: Singleton container for shared services
   - Access via `ServiceContainer.getInstance()`
-  - Provides: `database` (DatabaseService), `logger` (LoggerService)
+  - Provides: `database` (DatabaseService), `logger` (LoggerService), `dbLogger` (DatabaseLoggingService),
+    `locale` (LocaleService)
+  - Features must use these shared instances (never `new DatabaseService()`: each one opens its own MySQL pool)
 
 - **DatabaseService.ts**: MySQL connection pool wrapper
   - Methods: `query()`, `select()`, `selectOne()`, `insert()`, `execute()`
@@ -73,6 +118,15 @@ features/
   - Auto-reconnection and connection pooling (max 10 connections)
 
 - **LoggerService.ts**: Centralized logging with color-coded output
+
+#### Logging conventions
+- **No emojis in log messages** (emojis are only for user-facing Discord texts in `locales/*.json`)
+- **Log an error once, where it is handled** — never "log then rethrow". Services
+  (TracerService, AlbionService, DatabaseService, MigrationService) throw without logging; the
+  command / handler / script that catches the error logs it. `DatabaseService.query()` attaches the
+  failing SQL to the error (`error.sql`), printed by `logger.error()`.
+- **Each event is logged by the component that performs it** (e.g. `HealthMonitorService.stop()`
+  logs "Health Monitor arrêté"): callers must not log the same step again.
 
 - **HealthMonitorService.ts**: System and bot health monitoring
   - Tracks CPU usage, memory usage, process uptime
@@ -139,10 +193,19 @@ Example structure:
 ```typescript
 export default class MyCommand extends BaseCommand {
     public name = 'mycommand';
-    public description = 'Description';
+    public description = myI18n.default('commands.mycommand.description');
 
-    public buildCommand(): SlashCommandBuilder { /* ... */ }
-    public async execute(interaction: ChatInputCommandInteraction): Promise<void> { /* ... */ }
+    public buildCommand(): SlashCommandBuilder {
+        return new SlashCommandBuilder()
+            .setName(this.name)
+            .setDescription(this.description)
+            .setDescriptionLocalizations(myI18n.localizations('commands.mycommand.description'));
+    }
+
+    public async execute(interaction: ChatInputCommandInteraction): Promise<void> {
+        const t = myI18n.for(await this.resolveLocale(interaction));
+        await interaction.reply({ embeds: [buildMyEmbed(t, data)] });
+    }
 }
 ```
 
@@ -173,6 +236,10 @@ For transactions, use connection-based methods from MigrationService pattern.
 
 Manages Albion Online character verification:
 - Users can register multiple characters via `/register <pseudo>`
+- Registrations are global (not per Discord server). `/register` on a character already linked to the
+  user runs the `/update` flow instead (refresh stats + rename on the current server), via
+  `handlers/CharacterUpdateHandler`. The API → DB → nickname sequence lives in
+  `services/CharacterSyncService` (shared by /register, /update and /updateall).
 - Characters can be "claimed" by multiple users but only one can be "verified"
 - Verification requires in-game mail to "DBcide" with Discord ID
 - Verified characters are locked to that Discord account

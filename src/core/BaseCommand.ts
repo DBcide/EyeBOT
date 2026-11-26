@@ -1,4 +1,6 @@
 ﻿import { ChatInputCommandInteraction, SlashCommandBuilder } from 'discord.js';
+import { ServiceContainer } from '../shared/services/ServiceContainer';
+import { Locale } from '../shared/i18n/locales';
 
 /**
  * Classe abstraite définissant le contrat pour toutes les commandes slash Discord
@@ -166,4 +168,20 @@ export abstract class BaseCommand {
      * ```
      */
     public abstract execute(interaction: ChatInputCommandInteraction): Promise<void>;
+
+    /**
+     * Détermine la langue dans laquelle répondre à l'utilisateur
+     *
+     * @param interaction - L'interaction en cours
+     * @returns Préférence /language → langue du client Discord → langue par défaut
+     *
+     * @example
+     * ```typescript
+     * const t = tracerI18n.for(await this.resolveLocale(interaction));
+     * await interaction.editReply(t('register.error'));
+     * ```
+     */
+    protected resolveLocale(interaction: ChatInputCommandInteraction): Promise<Locale> {
+        return ServiceContainer.getInstance().locale.resolveForInteraction(interaction);
+    }
 }
