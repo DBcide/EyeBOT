@@ -1,64 +1,58 @@
-﻿import { REST, Routes } from 'discord.js';
+﻿// Doit rester le premier import : charge le .env avant que les autres modules lisent process.env
+import 'dotenv/config';
+import { REST, Routes } from 'discord.js';
 import { Bot } from '../core/Bot';
 import { LoggerService } from '../shared/services/LoggerService';
-import dotenv from 'dotenv';
-
-// Charger les variables d'environnement
-dotenv.config();
 
 const logger = new LoggerService();
 
-async function registerCommands() {
+async function registerCommands(): Promise<void> {
     try {
         logger.info('🔄 Démarrage de l\'enregistrement des commandes...', 'discord');
 
-        // Créer une instance du bot pour charger toutes les commandes
-        const bot = new Bot();
+        const { DISCORD_TOKEN, CLIENT_ID, GUILD_ID } = process.env;
+        if (!DISCORD_TOKEN) {
+            throw new Error('DISCORD_TOKEN manquant dans le .env');
+        }
+        if (!CLIENT_ID) {
+            throw new Error('CLIENT_ID manquant dans le .env');
+        }
+        if (!GUILD_ID) {
+            throw new Error('GUILD_ID manquant dans le .env');
+        }
 
-        // Charger les commandes (sans se connecter à Discord)
+        // Le Bot n'est utilisé que pour l'auto-découverte des commandes (pas de connexion Discord)
+        const bot = new Bot();
         await bot.loadCommandsOnly();
 
-        // Convertir les commandes en JSON pour l'API Discord
         const commands = Array.from(bot.commands.values()).map(cmd =>
             cmd.buildCommand().toJSON()
         );
 
         logger.info(`📦 ${commands.length} commande(s) à enregistrer`, 'discord');
 
-        // Vérifier les variables d'environnement
-        if (!process.env.DISCORD_TOKEN) {
-            throw new Error('DISCORD_TOKEN manquant dans le .env');
-        }
-        if (!process.env.CLIENT_ID) {
-            throw new Error('CLIENT_ID manquant dans le .env');
-        }
-        if (!process.env.GUILD_ID) {
-            throw new Error('GUILD_ID manquant dans le .env');
-        }
+        const rest = new REST().setToken(DISCORD_TOKEN);
 
-        // Créer le client REST
-        const rest = new REST().setToken(process.env.DISCORD_TOKEN);
-
-        // Enregistrer les commandes (remplace toutes les commandes existantes)
+        // PUT remplace l'intégralité des commandes existantes du serveur
         logger.info('⏳ Envoi des commandes à Discord...', 'discord');
-
         await rest.put(
-            Routes.applicationGuildCommands(process.env.CLIENT_ID, process.env.GUILD_ID),
+            Routes.applicationGuildCommands(CLIENT_ID, GUILD_ID),
             { body: commands }
         );
 
         logger.success(`✅ ${commands.length} commande(s) enregistrée(s) avec succès !`, 'discord');
 
-        // Afficher la liste des commandes enregistrées
         commands.forEach(cmd => {
             logger.info(`   /${cmd.name} - ${cmd.description}`, 'discord');
         });
 
+        // Sortie explicite : le pool MySQL ouvert par le ServiceContainer (logs en base)
+        // garderait sinon le processus en vie indéfiniment
+        process.exit(0);
     } catch (error) {
         logger.error('❌ Erreur lors de l\'enregistrement des commandes', 'discord', error);
         process.exit(1);
     }
 }
 
-// Exécuter le script
-registerCommands();
+void registerCommands();

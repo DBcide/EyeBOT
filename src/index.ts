@@ -1,71 +1,55 @@
-﻿import { Bot } from './core/Bot';
-import { LoggerService } from './shared/services/LoggerService';
-import dotenv from 'dotenv';
+﻿// Doit rester le premier import : charge le .env avant que les autres modules lisent process.env
+import 'dotenv/config';
+import { Bot } from './core/Bot';
+import { ServiceContainer } from './shared/services/ServiceContainer';
 
-// Charger les variables d'environnement depuis le fichier .env
-dotenv.config();
-
-// Initialiser le logger
-const logger = new LoggerService();
-
-// Créer une instance du bot
+const logger = ServiceContainer.getInstance().logger;
 const bot = new Bot();
 
-// Variable pour éviter les shutdowns multiples
 let isShuttingDown = false;
 
 /**
- * Gère l'arrêt propre du bot
+ * Arrête proprement le bot puis termine le processus
+ *
+ * @param signal - Raison de l'arrêt (affichée dans les logs)
+ * @param exitCode - Code de sortie du processus (1 pour signaler un crash à PM2)
  */
-async function gracefulShutdown(signal: string): Promise<void> {
+async function gracefulShutdown(signal: string, exitCode: number = 0): Promise<void> {
     if (isShuttingDown) {
         logger.warn('⚠️  Arrêt déjà en cours, ignoré', 'shutdown');
         return;
     }
 
     isShuttingDown = true;
-    logger.warn(`\n🔴 Signal reçu: ${signal}`, 'shutdown');
+    logger.warn(`🔴 Signal reçu: ${signal}`, 'shutdown');
 
     try {
         await bot.shutdown(signal);
-        process.exit(0);
+        process.exit(exitCode);
     } catch (error) {
         logger.error('❌ Erreur lors de l\'arrêt propre', 'shutdown', error);
         process.exit(1);
     }
 }
 
-// Handler pour SIGTERM (arrêt propre demandé par le système)
-process.on('SIGTERM', async () => {
-    await gracefulShutdown('SIGTERM - Arrêt demandé par le système');
+process.on('SIGTERM', () => {
+    void gracefulShutdown('SIGTERM - Arrêt demandé par le système');
 });
 
-// Handler pour SIGINT (Ctrl+C)
-process.on('SIGINT', async () => {
-    await gracefulShutdown('SIGINT - Interruption manuelle (Ctrl+C)');
+process.on('SIGINT', () => {
+    void gracefulShutdown('SIGINT - Interruption manuelle (Ctrl+C)');
 });
 
-// Handler pour les exceptions non catchées
 process.on('uncaughtException', (error: Error) => {
     logger.error('💥 Exception non catchée détectée!', 'error', error);
-    logger.error(`Stack trace: ${error.stack}`, 'error');
-
-    // Arrêt forcé après log
-    gracefulShutdown('uncaughtException').then(() => {
-        process.exit(1);
-    });
+    void gracefulShutdown('uncaughtException', 1);
 });
 
-// Handler pour les promises rejetées non catchées
-process.on('unhandledRejection', (reason: any, promise: Promise<any>) => {
+// On log sans arrêter le bot : une promesse rejetée isolée n'est généralement pas fatale
+process.on('unhandledRejection', (reason: unknown) => {
     logger.error('💥 Promise rejetée non catchée détectée!', 'error', reason);
-    logger.error(`Promise: ${promise}`, 'error');
-
-    // On log mais on ne shutdown pas (peut être non critique)
-    // Si c'est critique, l'erreur deviendra une uncaughtException
 });
 
-// Démarrer le bot
 bot.start().catch((error) => {
     logger.error('Erreur fatale lors du démarrage du bot', 'startup', error);
     process.exit(1);

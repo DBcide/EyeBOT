@@ -60,9 +60,11 @@
  * - Utiliser once: true pour les événements uniques (ready, etc.)
  *
  * **Événements existants dans EyeBOT**:
- * - **tracer/ReadyEvent**: Initialisation du bot au démarrage
- * - **tracer/GuildCreateEvent**: Enregistrement des nouveaux serveurs
- * - **tracer/GuildDeleteEvent**: Nettoyage lors du retrait du bot
+ * - **system/ErrorEvent**: Log des erreurs émises par le client Discord.js
+ * - **system/GuildCreateEvent**: Log de l'ajout du bot à un serveur
+ * - **system/GuildDeleteEvent**: Log du retrait du bot d'un serveur
+ *
+ * Note: le démarrage (ClientReady) est géré directement par Bot.start().
  *
  * @see Bot.loadEvents() - Auto-découverte des événements
  * @see https://discord.js.org/docs/packages/discord.js/main/Client:Class#events - Liste complète des événements

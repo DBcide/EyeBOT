@@ -33,7 +33,7 @@
 
 Before installing EyeBOT, ensure you have:
 
-- **Node.js** v16 or higher ([Download](https://nodejs.org/))
+- **Node.js** v18 or higher ([Download](https://nodejs.org/)) — required by discord.js 14 and the global `fetch` used for the Albion API
 - **npm** (comes with Node.js)
 - **MySQL** v5.7 or higher ([Download](https://dev.mysql.com/downloads/mysql/))
 - **Discord Bot Token** ([Create a bot](https://discord.com/developers/applications))
@@ -578,7 +578,7 @@ For issues, questions, or feature requests:
       <img src="https://img.shields.io/badge/TypeScript-5.9-blue.svg" alt="TypeScript">
     </a>
     <a href="https://nodejs.org/">
-      <img src="https://img.shields.io/badge/Node.js-16+-green.svg" alt="Node.js">
+      <img src="https://img.shields.io/badge/Node.js-18+-green.svg" alt="Node.js">
     </a>
   </p>
 </div>

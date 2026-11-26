@@ -23,6 +23,7 @@ export class DatabaseService {
     private pool: mysql.Pool;
     private logger: LoggerService;
     private isConnected: boolean = false;
+    private closed: boolean = false;
     private connectionPromise?: Promise<void>;
 
     /**
@@ -80,12 +81,17 @@ export class DatabaseService {
         this.connectionPromise = (async () => {
             try {
                 const connection = await this.pool.getConnection();
-                await connection.ping();
-                connection.release();
+                try {
+                    await connection.ping();
+                } finally {
+                    connection.release();
+                }
                 this.isConnected = true;
                 this.logger.success('Connexion à la base de données établie', 'database');
             } catch (error) {
                 this.isConnected = false;
+                // On oublie la promesse en échec pour qu'un prochain appel puisse retenter
+                this.connectionPromise = undefined;
                 this.logger.error('Échec de la connexion à la base de données', 'database', error);
                 throw error;
             }
@@ -251,7 +257,12 @@ export class DatabaseService {
      */
     public async beginTransaction(): Promise<mysql.PoolConnection> {
         const connection = await this.pool.getConnection();
-        await connection.beginTransaction();
+        try {
+            await connection.beginTransaction();
+        } catch (error) {
+            connection.release();
+            throw error;
+        }
         return connection;
     }
 
@@ -267,8 +278,11 @@ export class DatabaseService {
      * Toujours utiliser dans un bloc try/catch pour gérer les erreurs.
      */
     public async commit(connection: mysql.PoolConnection): Promise<void> {
-        await connection.commit();
-        connection.release();
+        try {
+            await connection.commit();
+        } finally {
+            connection.release();
+        }
     }
 
     /**
@@ -283,8 +297,11 @@ export class DatabaseService {
      * Toutes les modifications depuis beginTransaction() sont annulées.
      */
     public async rollback(connection: mysql.PoolConnection): Promise<void> {
-        await connection.rollback();
-        connection.release();
+        try {
+            await connection.rollback();
+        } finally {
+            connection.release();
+        }
     }
 
     /**
@@ -299,6 +316,19 @@ export class DatabaseService {
      */
     public isConnectionActive(): boolean {
         return this.isConnected;
+    }
+
+    /**
+     * Indique si le pool a été fermé via close()
+     *
+     * @returns true après l'appel à close(), false sinon
+     *
+     * @remarks
+     * Utilisé par LoggerService pour ne plus tenter d'écrire en base pendant l'arrêt
+     * (sinon chaque log d'arrêt produirait une erreur "Pool is closed").
+     */
+    public isClosed(): boolean {
+        return this.closed;
     }
 
     /**
@@ -321,6 +351,10 @@ export class DatabaseService {
      * ```
      */
     public async close(): Promise<void> {
+        if (this.closed) return;
+        this.closed = true;
+        this.isConnected = false;
+
         try {
             await this.pool.end();
             this.logger.info('Pool de connexions à la base de données fermé', 'database');

@@ -36,6 +36,10 @@ import mysql from 'mysql2/promise';
  * - En cas d'erreur: rollback automatique + arrêt du processus
  * - Pas d'exécution partielle: tout ou rien par migration
  *
+ * **Limite MySQL**: les instructions DDL (CREATE/ALTER/DROP TABLE) provoquent un
+ * commit implicite et ne peuvent pas être annulées par le rollback. Une migration
+ * qui contient plusieurs DDL doit donc rester idempotente (IF EXISTS / IF NOT EXISTS).
+ *
  * **Cas d'usage**:
  * - `npm run migrate`: Exécute toutes les migrations en attente
  * - `npm run migrate:rollback`: Annule la dernière migration
@@ -127,8 +131,10 @@ export class MigrationService {
      * Si le nom existe déjà (contrainte UNIQUE), lève une erreur MySQL.
      * Cette erreur provoque un rollback de la transaction en cours.
      */
-    private async recordMigration(name: string): Promise<void> {
-        await this.db.insert(
+    private async recordMigration(connection: mysql.PoolConnection, name: string): Promise<void> {
+        // Exécuté sur la connexion de la transaction : sinon l'enregistrement serait
+        // fait sur une autre connexion du pool, hors transaction (non annulé en cas de rollback)
+        await connection.execute(
             'INSERT INTO migrations (name) VALUES (?)',
             [name]
         );
@@ -146,8 +152,8 @@ export class MigrationService {
      *
      * Si le nom n'existe pas, la requête s'exécute quand même sans erreur (DELETE silencieux).
      */
-    private async removeMigration(name: string): Promise<void> {
-        await this.db.execute(
+    private async removeMigration(connection: mysql.PoolConnection, name: string): Promise<void> {
+        await connection.execute(
             'DELETE FROM migrations WHERE name = ?',
             [name]
         );
@@ -219,7 +225,7 @@ export class MigrationService {
 
             try {
                 await migration.up(connection);
-                await this.recordMigration(migration.name);
+                await this.recordMigration(connection, migration.name);
                 await this.db.commit(connection);
 
                 this.logger.success(`✅ Migration réussie: ${migration.name}`, 'database');
@@ -291,9 +297,10 @@ export class MigrationService {
         await this.db.testConnection();
         await this.ensureMigrationsTable();
 
-        // Récupérer la dernière migration exécutée
+        // executed_at a une précision à la seconde : plusieurs migrations lancées ensemble
+        // ont la même valeur, l'id départage pour prendre réellement la dernière
         const lastMigration = await this.db.selectOne<{ name: string }>(
-            'SELECT name FROM migrations ORDER BY executed_at DESC LIMIT 1'
+            'SELECT name FROM migrations ORDER BY executed_at DESC, id DESC LIMIT 1'
         );
 
         if (!lastMigration) {
@@ -314,7 +321,7 @@ export class MigrationService {
 
         try {
             await migration.down(connection);
-            await this.removeMigration(migration.name);
+            await this.removeMigration(connection, migration.name);
             await this.db.commit(connection);
 
             this.logger.success(`✅ Migration annulée: ${migration.name}`, 'database');
@@ -375,7 +382,7 @@ export class MigrationService {
         await this.ensureMigrationsTable();
 
         const migrations = await this.db.select<{ name: string; executed_at: Date }>(
-            'SELECT name, executed_at FROM migrations ORDER BY executed_at ASC'
+            'SELECT name, executed_at FROM migrations ORDER BY executed_at ASC, id ASC'
         );
 
         if (migrations.length === 0) {

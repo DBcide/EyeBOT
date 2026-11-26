@@ -1,5 +1,6 @@
 ﻿import { AlbionSearchResponse, AlbionPlayer, AlbionPlayerDetailed } from '../models/AlbionTypes';
 import { LoggerService } from '../../../shared/services/LoggerService';
+import { ServiceContainer } from '../../../shared/services/ServiceContainer';
 
 /**
  * Service d'intégration avec l'API publique d'Albion Online
@@ -32,11 +33,11 @@ export class AlbionService {
      * Crée une instance du service Albion API
      *
      * @remarks
-     * Initialise sa propre instance de LoggerService (non partagée).
+     * Utilise le LoggerService partagé du ServiceContainer (logs également persistés en base).
      * Le service est stateless et peut être instancié plusieurs fois.
      */
     constructor() {
-        this.logger = new LoggerService();
+        this.logger = ServiceContainer.getInstance().logger;
     }
 
     /**
@@ -105,7 +106,7 @@ export class AlbionService {
     public async searchPlayer(playerName: string): Promise<AlbionPlayer[]> {
         try {
             const url = `${this.API_BASE_URL}/search?q=${encodeURIComponent(playerName)}`;
-            this.logger.debug(`Recherche Albion API: ${playerName}`);
+            this.logger.debug(`Recherche Albion API: ${playerName}`, 'albion');
 
             const response = await this.fetchWithTimeout(url);
 
@@ -117,10 +118,12 @@ export class AlbionService {
             }
 
             const data = await response.json() as AlbionSearchResponse;
+            // L'API peut omettre la clé "players" : on évite un crash sur .length
+            const players = data?.players ?? [];
 
-            this.logger.debug(`Résultats trouvés: ${data.players.length} joueur(s)`);
+            this.logger.debug(`Résultats trouvés: ${players.length} joueur(s)`, 'albion');
 
-            return data.players;
+            return players;
         } catch (error) {
             this.logger.error('Erreur lors de la recherche Albion', 'albion', error);
             throw error;
@@ -165,8 +168,8 @@ export class AlbionService {
      */
     public async getPlayerDetailsById(playerId: string): Promise<AlbionPlayerDetailed | null> {
         try {
-            const url = `${this.API_BASE_URL}/players/${playerId}`;
-            this.logger.debug(`Récupération détails joueur Albion: ${playerId}`);
+            const url = `${this.API_BASE_URL}/players/${encodeURIComponent(playerId)}`;
+            this.logger.debug(`Récupération détails joueur Albion: ${playerId}`, 'albion');
 
             const response = await this.fetchWithTimeout(url);
 

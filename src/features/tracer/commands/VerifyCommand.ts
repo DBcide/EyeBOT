@@ -225,9 +225,11 @@ export default class VerifyCommand extends BaseCommand {
                     .map((claim) => `• <@${claim.discord_id}> (enregistré le ${new Date(claim.registered_at).toLocaleDateString('fr-FR')})`)
                     .join('\n');
 
+                // Discord refuse un champ d'embed > 1024 caractères : la réponse admin échouerait
+                // alors que la vérification est déjà faite en base
                 adminEmbed.addFields({
                     name: `🗑️ Revendications supprimées (${duplicateClaims.length})`,
-                    value: removedUsers,
+                    value: removedUsers.length > 1024 ? `${removedUsers.slice(0, 1021)}...` : removedUsers,
                     inline: false,
                 });
             }
@@ -259,16 +261,19 @@ export default class VerifyCommand extends BaseCommand {
                 await targetUser.send({ embeds: [notificationEmbed] });
 
                 this.logger.success(
-                    `Notification de vérification envoyée en DM à l'utilisateur ${targetUserId}`
+                    `Notification de vérification envoyée en DM à l'utilisateur ${targetUserId}`,
+                    'tracer'
                 );
             } catch (dmError) {
                 this.logger.warn(
-                    `Impossible d'envoyer un DM à l'utilisateur ${targetUserId} - Peut-être ses DMs sont fermés`
+                    `Impossible d'envoyer un DM à l'utilisateur ${targetUserId} - Peut-être ses DMs sont fermés`,
+                    'tracer'
                 );
             }
 
             this.logger.success(
-                `Personnage ${character.albion_name} vérifié pour l'utilisateur ${targetUserId} par ${interaction.user.tag}`
+                `Personnage ${character.albion_name} vérifié pour l'utilisateur ${targetUserId} par ${interaction.user.tag}`,
+                'tracer'
             );
         } catch (error) {
             this.logger.error('Erreur lors de la vérification du personnage', 'tracer', error);

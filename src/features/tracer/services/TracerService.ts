@@ -1,7 +1,7 @@
 ﻿import { DatabaseService } from '../../../shared/services/DatabaseService';
 import { LoggerService } from '../../../shared/services/LoggerService';
-import {AlbionPlayerDetailed, TracerUser} from '../models/AlbionTypes';
-import { AlbionPlayer } from '../models/AlbionTypes';
+import { ServiceContainer } from '../../../shared/services/ServiceContainer';
+import { AlbionPlayer, AlbionPlayerDetailed, TracerUser } from '../models/AlbionTypes';
 
 /**
  * Service de gestion des personnages Albion Online liés aux comptes Discord
@@ -25,12 +25,14 @@ export class TracerService {
      * Crée une instance du service Tracer
      *
      * @remarks
-     * Initialise ses propres instances de DatabaseService et LoggerService.
-     * Ces services ne sont PAS partagés avec ServiceContainer (isolation du feature).
+     * Utilise les services partagés du ServiceContainer. Auparavant chaque instance
+     * créait son propre DatabaseService, donc un pool MySQL de 10 connexions par
+     * commande (4 pools supplémentaires jamais fermés à l'arrêt).
      */
     constructor() {
-        this.db = new DatabaseService();
-        this.logger = new LoggerService();
+        const services = ServiceContainer.getInstance();
+        this.db = services.database;
+        this.logger = services.logger;
     }
 
     /**
@@ -312,7 +314,7 @@ export class TracerService {
                     ]
                 );
 
-                this.logger.success(`Personnage ${albionPlayer.Name} mis à jour pour l'utilisateur ${discordId}`);
+                this.logger.success(`Personnage ${albionPlayer.Name} mis à jour pour l'utilisateur ${discordId}`, 'tracer');
                 return { id: existingRegistration.id, isUpdate: true };
             }
 
@@ -333,7 +335,7 @@ export class TracerService {
                 ]
             );
 
-            this.logger.success(`Personnage ${albionPlayer.Name} enregistré pour l'utilisateur ${discordId}`);
+            this.logger.success(`Personnage ${albionPlayer.Name} enregistré pour l'utilisateur ${discordId}`, 'tracer');
             return { id: insertId, isUpdate: false };
         } catch (error) {
             this.logger.error('Erreur lors de l\'enregistrement du personnage', 'tracer', error);
@@ -374,7 +376,7 @@ export class TracerService {
                 ]
             );
 
-            this.logger.success(`Personnage ${albionPlayer.Name} mis à jour`);
+            this.logger.success(`Personnage ${albionPlayer.Name} mis à jour`, 'tracer');
         } catch (error) {
             this.logger.error('Erreur lors de la mise à jour du personnage', 'tracer', error);
             throw error;
@@ -414,7 +416,7 @@ export class TracerService {
                 ]
             );
 
-            this.logger.success(`Personnage ${playerDetails.Name} mis à jour depuis l'API`);
+            this.logger.success(`Personnage ${playerDetails.Name} mis à jour depuis l'API`, 'tracer');
         } catch (error) {
             this.logger.error('Erreur lors de la mise à jour du personnage', 'tracer', error);
             throw error;
@@ -454,7 +456,7 @@ export class TracerService {
      * @throws {Error} Si la vérification échoue
      *
      * @remarks
-     * Opération en 2 étapes (NON TRANSACTIONNELLE):
+     * Opération en 2 étapes exécutée dans une transaction (tout ou rien):
      * 1. DELETE toutes les revendications de ce personnage par d'autres utilisateurs
      * 2. UPDATE l'enregistrement de l'utilisateur actuel: is_verified = 1
      *
@@ -481,17 +483,26 @@ export class TracerService {
      */
     public async verifyCharacter(discordId: string, albionId: string): Promise<void> {
         try {
-            await this.db.execute(
-                'DELETE FROM tracer_users WHERE albion_id = ? AND discord_id != ?',
-                [albionId, discordId]
-            );
+            // Transaction : si l'UPDATE échoue, les revendications supprimées sont restaurées
+            const connection = await this.db.beginTransaction();
+            try {
+                await connection.execute(
+                    'DELETE FROM tracer_users WHERE albion_id = ? AND discord_id != ?',
+                    [albionId, discordId]
+                );
 
-            await this.db.execute(
-                'UPDATE tracer_users SET is_verified = 1, updated_at = NOW() WHERE albion_id = ? AND discord_id = ?',
-                [albionId, discordId]
-            );
+                await connection.execute(
+                    'UPDATE tracer_users SET is_verified = 1, updated_at = NOW() WHERE albion_id = ? AND discord_id = ?',
+                    [albionId, discordId]
+                );
 
-            this.logger.success(`Personnage ${albionId} vérifié pour l'utilisateur ${discordId}`);
+                await this.db.commit(connection);
+            } catch (error) {
+                await this.db.rollback(connection);
+                throw error;
+            }
+
+            this.logger.success(`Personnage ${albionId} vérifié pour l'utilisateur ${discordId}`, 'tracer');
         } catch (error) {
             this.logger.error('Erreur lors de la vérification du personnage', 'tracer', error);
             throw error;
