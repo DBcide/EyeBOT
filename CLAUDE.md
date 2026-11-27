@@ -300,11 +300,14 @@ tests/
 ├── features/
 │   └── tracer/
 │       ├── commands/        # RegisterCommand, UpdateAllCommand, UpdateCommand, VerifyCommand
-│       ├── embeds/          # RegisterEmbeds (snapshots fr + en)
-│       ├── services/        # AlbionService, TracerService
+│       ├── embeds/          # RegisterEmbeds, UpdateEmbeds, VerifyEmbeds (snapshots)
+│       ├── handlers/        # CharacterUpdateHandler
+│       ├── services/        # AlbionService, CharacterSyncService, TracerService
 │       └── utils/           # DiscordUtils, ErrorHandlers, GuildUtils
 ├── shared/
-│   └── services/            # DatabaseService, LoggerService
+│   ├── embeds/              # EmbedUtils
+│   ├── i18n/                # I18n engine, locales, common catalog
+│   └── services/            # DatabaseService, DatabaseLoggingService, LocaleService, LoggerService
 └── setup.ts                 # Global setup: no DB lookup for the user language (defaults to fr)
 ```
 
@@ -319,6 +322,10 @@ tests/
 - Messages asserted in tests are the French texts (`interaction.locale` is unset in mocks → default `fr`).
 - Mocked collectors must await async handlers and expose `stop()`; the `end` event receives a reason
   (`'time'` triggers the timeout message, `'selected'` does not).
+- Error paths are tested, not just happy paths: a failing Discord reply (expired interaction,
+  missing permissions) must be logged once and never become an unhandled rejection.
+- To test the real `LocaleService` (mocked globally by `setup.ts`), call `jest.restoreAllMocks()` in `beforeEach`.
+- Coverage target: keep lines ≥ 99 % and branches ≥ 90 % (current: 99.4 % / 90.1 %).
 
 ### Coverage Exclusions
 

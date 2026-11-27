@@ -338,5 +338,50 @@ describe('UpdateCommand', () => {
                 content: expect.stringContaining('Temps écoulé'),
             }));
         });
+
+        it("[extrême] une erreur dans le menu est loguée une fois et affichée (pas de promesse rejetée)", async () => {
+            const interaction = createMockInteraction();
+            mockTracerService.getRegisteredUsers.mockResolvedValue([mockCharacter, mockCharacter2]);
+            await command.execute(interaction as any);
+
+            // deferUpdate échoue (ex: interaction déjà acquittée) → catch du handler collect
+            const selectInteraction = {
+                user: { id: USER_ID },
+                values: ['player-abc'],
+                deferUpdate: jest.fn().mockRejectedValue(new Error('Interaction already acknowledged')),
+                reply: jest.fn(),
+                update: jest.fn(),
+            };
+            await expect(interaction._collector.emit('collect', selectInteraction)).resolves.toBeUndefined();
+
+            expect(mockLogger.error).toHaveBeenCalledTimes(1);
+            expect(interaction.editReply).toHaveBeenLastCalledWith({
+                content: '❌ Une erreur est survenue lors de la mise à jour. Réessayez plus tard.',
+                embeds: [],
+                components: [],
+            });
+        });
+
+        it("[extrême] si l'affichage du timeout échoue (interaction expirée), un simple warn est logué", async () => {
+            const interaction = createMockInteraction();
+            mockTracerService.getRegisteredUsers.mockResolvedValue([mockCharacter, mockCharacter2]);
+            await command.execute(interaction as any);
+            interaction.editReply.mockRejectedValue(new Error('Unknown interaction'));
+
+            await expect(interaction._collector.emit('end', { size: 0 }, 'time')).resolves.toBeUndefined();
+
+            expect(mockLogger.warn).toHaveBeenCalledWith(expect.any(String), 'tracer', { error: 'Unknown interaction' });
+        });
+
+        it("[positif] le menu et ses libellés suivent la langue du client Discord", async () => {
+            const interaction = { ...createMockInteraction(), locale: 'en-GB' };
+            mockTracerService.getRegisteredUsers.mockResolvedValue([mockCharacter, mockCharacter2]);
+
+            await command.execute(interaction as any);
+
+            const reply = interaction.editReply.mock.calls[0][0];
+            expect(reply.embeds[0].data.title).toBe('🔄 Select a character to update');
+            expect(reply.components[0].components[0].data.placeholder).toBe('Select the character to update');
+        });
     });
 });

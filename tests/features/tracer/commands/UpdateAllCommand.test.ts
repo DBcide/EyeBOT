@@ -371,5 +371,61 @@ describe('UpdateAllCommand', () => {
                 content: expect.stringContaining('erreur critique'),
             }));
         });
+
+        it("[extrême] après le début du traitement, l'erreur critique passe par message.edit (token sans limite de 15 min)", async () => {
+            const member = makeMember('user-111', 'DBcide#0001');
+            const interaction = createMockInteraction({ members: new Map([['user-111', member]]) });
+            mockTracerService.getAllUsers.mockResolvedValue([makeTracerUser()]);
+            // Le résumé final échoue : on est alors dans le catch global, message de progression déjà connu
+            interaction._progressMessage.edit
+                .mockResolvedValueOnce(undefined)                    // progression du batch
+                .mockRejectedValueOnce(new Error('Unknown Message')) // résumé final
+                .mockResolvedValueOnce(undefined);                   // message d'erreur critique
+
+            await command.execute(interaction as any);
+
+            expect(interaction._progressMessage.edit).toHaveBeenLastCalledWith({
+                content: expect.stringContaining('erreur critique'),
+                embeds: [],
+            });
+        });
+
+        it("[extrême] si même l'affichage de l'erreur critique échoue, un warn est logué sans exception", async () => {
+            const interaction = createMockInteraction({ members: new Map([['user-111', makeMember('user-111', 'DBcide#0001')]]) });
+            mockTracerService.getAllUsers.mockRejectedValue(new Error('DB down'));
+            interaction.editReply.mockRejectedValue(new Error('Unknown interaction'));
+
+            await expect(command.execute(interaction as any)).resolves.toBeUndefined();
+
+            expect(mockLogger.warn).toHaveBeenCalledWith(expect.stringContaining('erreur critique'), 'tracer', { error: 'Unknown interaction' });
+        });
+    });
+
+    describe('robustesse de la progression', () => {
+        it("[extrême] un échec d'affichage de la progression n'interrompt pas les mises à jour", async () => {
+            const member = makeMember('user-111', 'DBcide#0001');
+            const interaction = createMockInteraction({ members: new Map([['user-111', member]]) });
+            mockTracerService.getAllUsers.mockResolvedValue([makeTracerUser()]);
+            interaction._progressMessage.edit.mockRejectedValueOnce(new Error('Rate limited'));
+
+            await command.execute(interaction as any);
+
+            expect(mockTracerService.updateUserFromApi).toHaveBeenCalledTimes(1);
+            expect(mockLogger.warn).toHaveBeenCalledWith(expect.stringContaining('progression'), 'tracer', { error: 'Rate limited' });
+            expect(lastProgressEdit(interaction).embeds[0].data.title).toContain('Mise à jour terminée');
+        });
+
+        it("[extrême] un membre sans personnage enregistré est ignoré (aucune requête API)", async () => {
+            const members = new Map([
+                ['user-111', makeMember('user-111', 'DBcide#0001')],
+                ['user-222', makeMember('user-222', 'Other#0002')],
+            ]);
+            const interaction = createMockInteraction({ members });
+            mockTracerService.getAllUsers.mockResolvedValue([makeTracerUser()]);
+
+            await command.execute(interaction as any);
+
+            expect(mockAlbionService.getPlayerDetailsById).toHaveBeenCalledTimes(1);
+        });
     });
 });

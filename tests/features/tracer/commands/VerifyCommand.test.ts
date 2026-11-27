@@ -277,4 +277,31 @@ describe('VerifyCommand', () => {
             }));
         });
     });
+
+    describe('langues', () => {
+        it("[positif] le MP de confirmation est envoyé dans la langue enregistrée du joueur vérifié, pas celle de l'admin", async () => {
+            const { LocaleService } = await import('@/shared/services/LocaleService');
+            jest.spyOn(LocaleService.prototype, 'getUserLocale')
+                .mockImplementation(async (id: string) => (id === TARGET_USER_ID ? 'en' : null));
+            const interaction = createMockInteraction();
+            mockTracerService.getRegisteredUsers.mockResolvedValue([mockCharacter]);
+            mockTracerService.getAllClaimsForCharacter.mockResolvedValue([mockCharacter]);
+
+            await command.execute(interaction as any);
+
+            // Admin : français (pas de préférence) ; joueur vérifié : anglais
+            expect(interaction.editReply.mock.calls[0][0].embeds[0].data.title).toBe('✅ Personnage vérifié avec succès');
+            expect(interaction._mockTargetUser.send.mock.calls[0][0].embeds[0].data.title).toBe('🔒 Character verified!');
+        });
+    });
+
+    describe('constructeur', () => {
+        it('[positif] sans dépendance injectée, utilise les services partagés', async () => {
+            const { ServiceContainer } = await import('@/shared/services/ServiceContainer');
+            const defaultCommand = new VerifyCommand() as any;
+
+            expect(defaultCommand.logger).toBe(ServiceContainer.getInstance().logger);
+            expect(defaultCommand.tracerService.db).toBe(ServiceContainer.getInstance().database);
+        });
+    });
 });

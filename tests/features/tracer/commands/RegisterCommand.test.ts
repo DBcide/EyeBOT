@@ -569,5 +569,84 @@ describe('RegisterCommand', () => {
                 content: expect.stringContaining('Temps écoulé'),
             }));
         });
+
+        it("[extrême] une erreur pendant la sélection est loguée et affichée (pas de promesse rejetée)", async () => {
+            const interaction = createMockInteraction();
+            mockAlbionService.searchPlayer.mockResolvedValue([mockPlayer, mockPlayer2]);
+            await command.execute(interaction as any);
+            mockTracerService.isCharacterVerifiedByOther.mockRejectedValue(new Error('Request timeout'));
+
+            const selectInteraction = {
+                user: { id: USER_ID },
+                values: ['player-abc'],
+                deferUpdate: jest.fn().mockResolvedValue(undefined),
+                reply: jest.fn(),
+                update: jest.fn(),
+            };
+            await expect(interaction._collector.emit('collect', selectInteraction)).resolves.toBeUndefined();
+
+            expect(mockLogger.error).toHaveBeenCalledWith(expect.any(String), 'tracer', expect.any(Error));
+            expect(interaction.editReply).toHaveBeenLastCalledWith(expect.objectContaining({
+                content: expect.stringContaining('trop de temps'),
+                components: [],
+            }));
+        });
+
+        it("[extrême] arrête le collector dès la première sélection valide (pas de double enregistrement)", async () => {
+            const interaction = createMockInteraction();
+            mockAlbionService.searchPlayer.mockResolvedValue([mockPlayer, mockPlayer2]);
+            await command.execute(interaction as any);
+            setupHappyPath();
+
+            await interaction._collector.emit('collect', {
+                user: { id: USER_ID },
+                values: ['player-abc'],
+                deferUpdate: jest.fn().mockResolvedValue(undefined),
+                reply: jest.fn(),
+                update: jest.fn(),
+            });
+
+            expect(interaction._collector.stop).toHaveBeenCalledWith('selected');
+        });
+
+        it("[extrême] si la réponse de timeout échoue (interaction expirée), un simple warn est logué", async () => {
+            const interaction = createMockInteraction();
+            mockAlbionService.searchPlayer.mockResolvedValue([mockPlayer, mockPlayer2]);
+            await command.execute(interaction as any);
+            interaction.editReply.mockRejectedValue(new Error('Unknown interaction'));
+
+            await expect(interaction._collector.emit('end', { size: 0 }, 'time')).resolves.toBeUndefined();
+
+            expect(mockLogger.warn).toHaveBeenCalledWith(expect.any(String), 'tracer', { error: 'Unknown interaction' });
+        });
+    });
+
+    // ─── Robustesse des messages après enregistrement ─────────────────────────
+
+    describe('messages après un enregistrement réussi', () => {
+        it("[extrême] un message public impossible (permissions du salon) n'affiche pas d'erreur à l'utilisateur", async () => {
+            const interaction = createMockInteraction();
+            mockAlbionService.searchPlayer.mockResolvedValue([mockPlayer]);
+            setupHappyPath();
+            interaction.channel.send.mockRejectedValue(new Error('Missing Permissions'));
+
+            await command.execute(interaction as any);
+
+            expect(mockLogger.warn).toHaveBeenCalledWith(expect.stringContaining('message public'), 'tracer');
+            expect(interaction.editReply).not.toHaveBeenCalledWith(expect.objectContaining({
+                content: expect.stringContaining('Erreur lors de l'),
+            }));
+        });
+
+        it("[positif] répond en anglais si le client Discord de l'utilisateur est en anglais", async () => {
+            const interaction = { ...createMockInteraction(), locale: 'en-US' };
+            mockAlbionService.searchPlayer.mockResolvedValue([]);
+
+            await command.execute(interaction as any);
+
+            expect(interaction.editReply).toHaveBeenCalledWith({
+                content: '❌ No player named "DBcide" was found on Albion Online.',
+            });
+        });
     });
 });

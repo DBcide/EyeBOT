@@ -106,6 +106,19 @@ describe('AlbionService', () => {
             expect(result).toEqual([]);
         });
 
+        it('[extrême] retourne un tableau vide si l\'API omet la clé "players"', async () => {
+            (global.fetch as jest.Mock).mockResolvedValue(makeResponse(true, 200, { guilds: [] }));
+
+            await expect(service.searchPlayer('DBcide')).resolves.toEqual([]);
+        });
+
+        it('[extrême] ne logue pas les erreurs API (loguées une seule fois par la commande)', async () => {
+            (global.fetch as jest.Mock).mockResolvedValue(makeResponse(false, 500));
+
+            await expect(service.searchPlayer('DBcide')).rejects.toThrow();
+            expect(mockLogger.error).not.toHaveBeenCalled();
+        });
+
         it('[positif] encode les caractères spéciaux dans l\'URL', async () => {
             (global.fetch as jest.Mock).mockResolvedValue(
                 makeResponse(true, 200, { players: [], guilds: [] })

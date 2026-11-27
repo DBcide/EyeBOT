@@ -1,0 +1,56 @@
+// Jest Snapshot v1, https://jestjs.io/docs/snapshot-testing
+
+exports[`UpdateEmbeds /updateall [snapshot] progression après un batch 1`] = `
+{
+  "color": 4886754,
+  "description": "**Membres à mettre à jour :** 12
+**Progression :** 5/12
+**Réussites :** 3 ✅
+**Ignorés :** 1 ⏭️
+**Échecs :** 1 ❌
+
+⏳ Batch 1/3 terminé...",
+  "timestamp": "2026-01-01T00:00:00.000Z",
+  "title": "🔄 Mise à jour en cours...",
+}
+`;
+
+exports[`UpdateEmbeds /updateall [snapshot] progression initiale 1`] = `
+{
+  "color": 4886754,
+  "description": "**Membres à mettre à jour :** 12
+**Progression :** 0/12
+
+⏳ Traitement en cours, veuillez patienter...",
+  "timestamp": "2026-01-01T00:00:00.000Z",
+  "title": "🔄 Mise à jour en cours...",
+}
+`;
+
+exports[`UpdateEmbeds buildCharacterSelectionEmbed() [snapshot] liste des personnages + avertissement de renommage 1`] = `
+{
+  "color": 4886754,
+  "description": "Vous avez plusieurs personnages enregistrés. Sélectionnez celui à mettre à jour :
+
+**1.** DBcide - 1.50M Kill Fame
+**2.** AltDBcide - 250.00K Kill Fame
+
+⚠️ **Attention :** Vous serez renommé sur ce serveur avec le personnage sélectionné.",
+  "title": "🔄 Sélectionnez un personnage à mettre à jour",
+}
+`;
+
+exports[`UpdateEmbeds buildCharacterUpdatedEmbed() [snapshot] stats à jour avec guilde et alliance 1`] = `
+{
+  "color": 5361510,
+  "description": "Vos informations ont été mises à jour avec succès !
+
+**Albion :** DBcide
+**Kill Fame :** 1.60M
+**Death Fame :** 500.00K
+**Guilde :** Sunfall
+**Alliance :** RIOT",
+  "timestamp": "2026-01-01T00:00:00.000Z",
+  "title": "✅ Personnage mis à jour",
+}
+`;

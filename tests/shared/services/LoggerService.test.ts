@@ -163,6 +163,32 @@ describe('LoggerService', () => {
             );
         });
 
+        it('[positif] sérialise le contexte en JSON (BigInt compris) dans la colonne context', async () => {
+            const db = { isClosed: () => false, insert: jest.fn().mockResolvedValue(1) };
+            logger.setDatabaseService(db as any);
+
+            logger.warn('Mémoire', 'monitoring', { rss: BigInt(1024), ok: true });
+            await logger.flush();
+
+            expect(db.insert).toHaveBeenCalledWith(expect.any(String), ['warn', 'monitoring', 'Mémoire', '{"rss":"1024","ok":true}']);
+        });
+
+        it('[extrême] un échec d\'écriture en base ne lève rien et s\'affiche en console', async () => {
+            const db = { isClosed: () => false, insert: jest.fn().mockRejectedValue(new Error('DB down')) };
+            logger.setDatabaseService(db as any);
+
+            expect(() => logger.success('Message', 'test')).not.toThrow();
+            await logger.flush();
+
+            expect(console.error).toHaveBeenCalledWith('[LoggerService] Failed to write log to database:', expect.any(Error));
+        });
+
+        it('[extrême] sans base configurée, flush() se résout immédiatement', async () => {
+            logger.info('Console seulement', 'test');
+
+            await expect(logger.flush()).resolves.toBeUndefined();
+        });
+
         it('[extrême] n\'écrit plus en base une fois le pool fermé', async () => {
             const db = { isClosed: () => true, insert: jest.fn() };
             logger.setDatabaseService(db as any);

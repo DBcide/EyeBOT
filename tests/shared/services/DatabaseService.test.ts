@@ -165,6 +165,25 @@ describe('DatabaseService', () => {
             expect(db.isConnectionActive()).toBe(false);
         });
 
+        it('[extrême] libère la connexion même si ping() échoue', async () => {
+            const mockConnection = { ping: jest.fn().mockRejectedValue(new Error('ping KO')), release: jest.fn() };
+            mockPool.getConnection.mockResolvedValue(mockConnection);
+
+            await expect(db.testConnection()).rejects.toThrow('ping KO');
+            expect(mockConnection.release).toHaveBeenCalledTimes(1);
+        });
+
+        it('[extrême] retente la connexion au prochain appel après un échec (pas de promesse en échec mémorisée)', async () => {
+            const mockConnection = { ping: jest.fn().mockResolvedValue(undefined), release: jest.fn() };
+            mockPool.getConnection
+                .mockRejectedValueOnce(new Error('ECONNREFUSED'))
+                .mockResolvedValueOnce(mockConnection);
+
+            await expect(db.testConnection()).rejects.toThrow('ECONNREFUSED');
+            await expect(db.testConnection()).resolves.toBeUndefined();
+            expect(db.isConnectionActive()).toBe(true);
+        });
+
         it('[extrême] ne rappelle pas getConnection si testConnection est déjà en cours (promise partagée)', async () => {
             const mockConnection = { ping: jest.fn().mockResolvedValue(undefined), release: jest.fn() };
             mockPool.getConnection.mockResolvedValue(mockConnection);
@@ -208,6 +227,17 @@ describe('DatabaseService', () => {
             expect(mockConnection.beginTransaction).toHaveBeenCalledTimes(1);
             expect(connection).toBe(mockConnection);
         });
+
+        it('[extrême] libère la connexion si la transaction ne peut pas démarrer', async () => {
+            const mockConnection = {
+                beginTransaction: jest.fn().mockRejectedValue(new Error('Lock')),
+                release: jest.fn(),
+            };
+            mockPool.getConnection.mockResolvedValue(mockConnection);
+
+            await expect(db.beginTransaction()).rejects.toThrow('Lock');
+            expect(mockConnection.release).toHaveBeenCalledTimes(1);
+        });
     });
 
     // ─── commit() ─────────────────────────────────────────────────────────────
@@ -222,6 +252,13 @@ describe('DatabaseService', () => {
             await db.commit(mockConnection as any);
 
             expect(mockConnection.commit).toHaveBeenCalledTimes(1);
+            expect(mockConnection.release).toHaveBeenCalledTimes(1);
+        });
+
+        it('[extrême] libère la connexion même si le commit échoue (sinon le pool se vide)', async () => {
+            const mockConnection = { commit: jest.fn().mockRejectedValue(new Error('Deadlock')), release: jest.fn() };
+
+            await expect(db.commit(mockConnection as any)).rejects.toThrow('Deadlock');
             expect(mockConnection.release).toHaveBeenCalledTimes(1);
         });
     });
@@ -240,6 +277,41 @@ describe('DatabaseService', () => {
             expect(mockConnection.rollback).toHaveBeenCalledTimes(1);
             expect(mockConnection.release).toHaveBeenCalledTimes(1);
         });
+
+        it('[extrême] libère la connexion même si le rollback échoue', async () => {
+            const mockConnection = { rollback: jest.fn().mockRejectedValue(new Error('Connexion perdue')), release: jest.fn() };
+
+            await expect(db.rollback(mockConnection as any)).rejects.toThrow('Connexion perdue');
+            expect(mockConnection.release).toHaveBeenCalledTimes(1);
+        });
+    });
+
+    // ─── Erreurs SQL ──────────────────────────────────────────────────────────
+
+    describe('erreurs SQL', () => {
+        it('[positif] rattache la requête (sur une ligne) à l\'erreur pour le log unique de l\'appelant', async () => {
+            mockPool.execute.mockRejectedValue(new Error('Table inexistante'));
+
+            const error = await db.select('SELECT *\n            FROM inconnue  WHERE id = ?', [1]).catch(e => e);
+
+            expect(error.sql).toBe('SELECT * FROM inconnue WHERE id = ?');
+        });
+
+        it('[extrême] conserve le SQL déjà fourni par mysql2', async () => {
+            mockPool.execute.mockRejectedValue(Object.assign(new Error('Syntax'), { sql: 'SQL de mysql2' }));
+
+            const error = await db.select('SELECT 1').catch(e => e);
+
+            expect(error.sql).toBe('SQL de mysql2');
+        });
+
+        it('[extrême] complète une propriété sql présente mais vide (erreurs de connexion mysql2)', async () => {
+            mockPool.execute.mockRejectedValue(Object.assign(new Error('ECONNREFUSED'), { sql: undefined }));
+
+            const error = await db.select('SELECT 1').catch(e => e);
+
+            expect(error.sql).toBe('SELECT 1');
+        });
     });
 
     // ─── close() ──────────────────────────────────────────────────────────────
@@ -257,6 +329,25 @@ describe('DatabaseService', () => {
             mockPool.end.mockRejectedValue(new Error('Déjà fermé'));
 
             await expect(db.close()).resolves.not.toThrow();
+        });
+
+        it('[positif] isClosed() passe à true et la connexion n\'est plus active', async () => {
+            mockPool.end.mockResolvedValue(undefined);
+            expect(db.isClosed()).toBe(false);
+
+            await db.close();
+
+            expect(db.isClosed()).toBe(true);
+            expect(db.isConnectionActive()).toBe(false);
+        });
+
+        it('[extrême] un second close() ne rappelle pas pool.end()', async () => {
+            mockPool.end.mockResolvedValue(undefined);
+
+            await db.close();
+            await db.close();
+
+            expect(mockPool.end).toHaveBeenCalledTimes(1);
         });
     });
 });
