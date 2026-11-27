@@ -14,6 +14,7 @@ import { Locale as DiscordLocale } from 'discord.js';
 export const LOCALES = {
     fr: { label: 'Français', discordLocales: [DiscordLocale.French] },
     en: { label: 'English', discordLocales: [DiscordLocale.EnglishUS, DiscordLocale.EnglishGB] },
+    es: { label: 'Español', discordLocales: [DiscordLocale.SpanishES, DiscordLocale.SpanishLATAM] },
 } as const satisfies Record<string, { label: string; discordLocales: readonly DiscordLocale[] }>;
 
 /** Code d'une langue supportée ('fr', 'en', ...) */

@@ -245,7 +245,7 @@ EyeBOT answers each user in their own language. The language is chosen in this o
 
 When the bot sends a DM to another user (e.g. the verification notice of `/verify`), it uses **that user's** saved language.
 
-**Currently supported:** 🇫🇷 French (`fr`, reference language) · 🇬🇧 English (`en`)
+**Currently supported:** 🇫🇷 French (`fr`, reference language) · 🇬🇧 English (`en`) · 🇪🇸 Spanish (`es`)
 
 How it works:
 
@@ -258,6 +258,8 @@ How it works:
 ---
 
 ## Contributing a New Language (e.g. Spanish)
+
+> Spanish is already supported: it is used below as a worked example, since you can compare each step with the real files. For another language, replace `es` with its code (e.g. `de` and `DiscordLocale.German` for German).
 
 Adding a language only requires JSON files and three small code edits. **No database change** is needed. The TypeScript compiler tells you exactly what is still missing at each step.
 
@@ -349,6 +351,8 @@ npm run build     # every key of fr.json exists in es.json
 npm test          # all tests still pass (French snapshots must not change)
 ```
 
+`npm test` also fails to compile `tests/shared/i18n/TranslationCatalog.test.ts` until you add your language to the `createFeatureTranslations({ fr, en, es })` call there (same "Property is missing" error). Add the matching cases to `isSupportedLocale()` and `fromDiscordLocale()` in the same file.
+
 Then try it on your test server:
 
 ```bash
@@ -365,6 +369,7 @@ Checklist:
 - [ ] `src/shared/i18n/locales.ts` — language declared
 - [ ] 3 × `es.json` created and fully translated (no French left)
 - [ ] 3 catalogs updated (`index.ts`, `tracer/translations.ts`, `settings/translations.ts`)
+- [ ] `tests/shared/i18n/TranslationCatalog.test.ts` updated
 - [ ] `npm run build` and `npm test` pass
 - [ ] Tested in Discord with `/language`
 - [ ] This README: language added to *Currently supported* in [Translations](#translations)
@@ -809,7 +814,7 @@ For issues, questions, or feature requests:
 
 ---
 
-<div align="center">
+<div>
   <p>Made with ❤️ for the Albion Online community</p>
   <p>
     <a href="https://discord.js.org/">

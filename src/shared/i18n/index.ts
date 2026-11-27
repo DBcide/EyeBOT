@@ -1,5 +1,6 @@
 import fr from './locales/fr.json';
 import en from './locales/en.json';
+import es from './locales/es.json';
 import { TranslationCatalog } from './TranslationCatalog';
 import { Locale, SUPPORTED_LOCALES } from './locales';
 import { TranslationTree, Translator } from './types';
@@ -15,7 +16,7 @@ export type CommonMessages = typeof fr;
  * Catalogues communs. Le typage `Record<Locale, CommonMessages>` fait échouer la
  * compilation si une langue manque ou si une clé est absente d'un fichier.
  */
-const commonCatalogs: Record<Locale, CommonMessages> = { fr, en };
+const commonCatalogs: Record<Locale, CommonMessages> = { fr, en, es };
 
 /** Traductions communes, utilisées hors feature (ex: message d'erreur générique de Bot.ts) */
 export const commonTranslations = new TranslationCatalog<CommonMessages>(commonCatalogs);

@@ -79,10 +79,11 @@ describe('TranslationCatalog', () => {
 
     describe('localizations()', () => {
         it('[positif] génère une entrée par locale Discord des langues non par défaut', () => {
-            expect(i18n.discordLocalizations('nested.deep.key')).toEqual({
+            // objectContaining : le test reste valable quand une nouvelle langue est ajoutée
+            expect(i18n.discordLocalizations('nested.deep.key')).toEqual(expect.objectContaining({
                 [DiscordLocale.EnglishUS]: 'Deep',
                 [DiscordLocale.EnglishGB]: 'Deep',
-            });
+            }));
         });
 
         it('[extrême] n\'inclut pas la langue par défaut (déjà la description principale)', () => {
@@ -97,9 +98,10 @@ describe('catalogues communs', () => {
     });
 
     it('[positif] createFeatureTranslations donne accès aux clés de la feature et aux clés communes', () => {
-        const feature = createFeatureTranslations({ fr: { hello: 'Salut' }, en: { hello: 'Hi' } });
+        const feature = createFeatureTranslations({ fr: { hello: 'Salut' }, en: { hello: 'Hi' }, es: { hello: 'Hola' } });
 
         expect(feature.forLocale('en')('hello')).toBe('Hi');
+        expect(feature.forLocale('es')('hello')).toBe('Hola');
         expect(feature.forLocale('fr')('common.menu.notForYou')).toBe('❌ Ce menu ne vous est pas destiné.');
     });
 });
@@ -107,11 +109,11 @@ describe('catalogues communs', () => {
 describe('locales', () => {
     it('[positif] le français est la langue par défaut et fait partie des langues supportées', () => {
         expect(DEFAULT_LOCALE).toBe('fr');
-        expect(SUPPORTED_LOCALES).toEqual(expect.arrayContaining(['fr', 'en']));
+        expect(SUPPORTED_LOCALES).toEqual(expect.arrayContaining(['fr', 'en', 'es']));
     });
 
     describe('isSupportedLocale()', () => {
-        it.each([['fr', true], ['en', true], ['de', false], [42, false], [undefined, false]])(
+        it.each([['fr', true], ['en', true], ['es', true], ['de', false], [42, false], [undefined, false]])(
             '[positif] %p → %p', (value, expected) => {
                 expect(isSupportedLocale(value)).toBe(expected);
             }
@@ -129,7 +131,9 @@ describe('locales', () => {
             ['en-GB', 'en'],
             ['en-AU', 'en'],   // pas dans la liste explicite → repli sur la langue de base
             ['ja', null],
-            ['es-ES', null],
+            ['es-ES', 'es'],
+            ['es-419', 'es'],  // espagnol d'Amérique latine
+            ['de', null],
             [null, null],
             [undefined, null],
             ['', null],
