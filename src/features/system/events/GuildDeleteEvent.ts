@@ -13,7 +13,7 @@ import { LoggerService } from '../../../shared/services/LoggerService';
  * - Bot retiré via les paramètres du serveur
  *
  * **Actions effectuées**:
- * 1. Log console avec emoji 👋 (warn)
+ * 1. Log console (warn)
  * 2. Enregistrement dans event_logs (table event_logs)
  * 3. Enregistrement dans system_logs pour traçabilité
  *
@@ -34,8 +34,8 @@ export default class GuildDeleteEvent extends BaseEvent {
     public name = Events.GuildDelete;
     public once = false;
 
-    private logger: LoggerService;
-    private services: ServiceContainer;
+    private readonly logger: LoggerService;
+    private readonly services: ServiceContainer;
 
     /**
      * Crée une instance de l'événement GuildDelete
@@ -77,7 +77,7 @@ export default class GuildDeleteEvent extends BaseEvent {
     public async execute(guild: Guild): Promise<void> {
         // logger.warn écrit déjà dans system_logs : le contexte y est joint directement
         // (un appel séparé à dbLogger.logSystem() créait une ligne en double)
-        this.logger.warn(`👋 Bot retiré du serveur: ${guild.name} (ID: ${guild.id})`, 'discord', {
+        this.logger.warn(`Bot retiré du serveur: ${guild.name} (ID: ${guild.id})`, 'discord', {
             guildId: guild.id,
             guildName: guild.name,
         });

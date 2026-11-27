@@ -1,0 +1,16 @@
+{
+  "commands": {
+    "language": {
+      "description": "Elegir el idioma de las respuestas del bot",
+      "options": {
+        "language": "El idioma que se va a usar"
+      },
+      "auto": "Automático (idioma de Discord)"
+    }
+  },
+  "language": {
+    "updated": "\u2705 Idioma definido: **{language}**. A partir de ahora, el bot te responderá en este idioma.",
+    "reset": "\u2705 Modo automático: el bot utilizará el idioma de tu cliente de Discord (actualmente **{language}**).",
+    "error": "\u274C No se ha podido guardar tu idioma. Inténtalo de nuevo más tarde."
+  }
+}

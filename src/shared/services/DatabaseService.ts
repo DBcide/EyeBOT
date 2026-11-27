@@ -20,8 +20,8 @@ import { LoggerService } from './LoggerService';
  * - DB_NAME (défaut: eyebot)
  */
 export class DatabaseService {
-    private pool: mysql.Pool;
-    private logger: LoggerService;
+    private readonly pool: mysql.Pool;
+    private readonly logger: LoggerService;
     private isConnected: boolean = false;
     private closed: boolean = false;
     private connectionPromise?: Promise<void>;
@@ -92,7 +92,7 @@ export class DatabaseService {
                 this.isConnected = false;
                 // On oublie la promesse en échec pour qu'un prochain appel puisse retenter
                 this.connectionPromise = undefined;
-                this.logger.error('Échec de la connexion à la base de données', 'database', error);
+                // Pas de log ici : l'appelant (démarrage du bot, scripts) logue l'échec une seule fois
                 throw error;
             }
         })();
@@ -128,7 +128,12 @@ export class DatabaseService {
             const [rows] = await this.pool.execute(sql, params);
             return rows as T;
         } catch (error) {
-            this.logger.error(`Erreur lors de l'exécution de la requête SQL: ${sql}`, 'database', error);
+            // Pas de log ici : l'erreur est loguée une seule fois, par le code qui la traite.
+            // On y rattache la requête pour que ce log unique indique quel SQL a échoué.
+            // (mysql2 crée parfois la propriété avec la valeur undefined, d'où le test sur la valeur)
+            if (error && typeof error === 'object' && !(error as { sql?: string }).sql) {
+                (error as { sql?: string }).sql = sql.replace(/\s+/g, ' ').trim();
+            }
             throw error;
         }
     }
@@ -357,7 +362,7 @@ export class DatabaseService {
 
         try {
             await this.pool.end();
-            this.logger.info('Pool de connexions à la base de données fermé', 'database');
+            this.logger.info('Connexion à la base de données fermée', 'database');
         } catch (error) {
             this.logger.error('Erreur lors de la fermeture du pool de connexions', 'database', error);
         }

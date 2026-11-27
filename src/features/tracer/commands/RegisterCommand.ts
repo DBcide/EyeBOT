@@ -2,8 +2,6 @@
     ChatInputCommandInteraction,
     SlashCommandBuilder,
     EmbedBuilder,
-    StringSelectMenuBuilder,
-    ActionRowBuilder,
     ComponentType,
     MessageFlagsBitField,
 } from 'discord.js';
@@ -15,14 +13,21 @@ import { ServiceContainer } from '../../../shared/services/ServiceContainer';
 import { AlbionPlayer, TracerUser } from '../models/AlbionTypes';
 import { updateMemberNickname } from '../utils/DiscordUtils';
 import { getAlbionApiErrorMessage } from '../utils/ErrorHandlers';
+import { tracerTranslations, TracerTranslator } from '../translations';
+import { buildPlayerSelectMenu } from '../components/SelectMenus';
+import { CharacterUpdateHandler } from '../handlers/CharacterUpdateHandler';
+import { CharacterSyncService } from '../services/CharacterSyncService';
 import {
+    buildCharacterAlreadyVerifiedEmbed,
     buildCharactersSummaryEmbed,
+    buildPlayerSelectionEmbed,
+    buildRegistrationSuccessEmbed,
+    buildRegistrationWithWarningEmbed,
     buildVerificationInstructionsEmbed,
     buildVerificationWarningEmbed,
-    buildCharacterAlreadyVerifiedEmbed,
-    buildRegistrationSuccessEmbed,
-    buildRegistrationWithWarningEmbed
-} from '../utils/EmbedBuilders';
+    fromAlbionPlayer,
+    fromTracerUser,
+} from '../embeds';
 
 /**
  * Paramètres qui différencient un enregistrement standard d'un enregistrement avec avertissement
@@ -32,7 +37,7 @@ interface RegistrationMessages {
     mainEmbed: EmbedBuilder;
     /** Embed d'instructions de vérification envoyé en MP */
     verificationEmbed: EmbedBuilder;
-    /** Message éphémère de confirmation */
+    /** Message éphémère de confirmation (déjà traduit) */
     confirmationMessage: string;
     /** Message de log en cas d'erreur */
     errorLogMessage: string;
@@ -42,69 +47,65 @@ interface RegistrationMessages {
  * Commande /register pour enregistrer un personnage Albion Online à un compte Discord
  *
  * @remarks
- * Fonctionnalités:
- * - Recherche d'un personnage Albion par pseudo (API publique Albion)
- * - Menu de sélection si plusieurs résultats
- * - Vérification des conflits (personnage déjà vérifié par quelqu'un d'autre)
- * - Support des multi-claims (plusieurs utilisateurs peuvent revendiquer le même personnage non vérifié)
- * - Mise à jour automatique du pseudo Discord sur le serveur
- * - Embed récapitulatif avec tous les personnages de l'utilisateur
- * - Instructions de vérification envoyées en MP
- *
  * Flux d'enregistrement:
  * 1. Recherche du personnage via l'API Albion
  * 2. Menu de sélection si plusieurs résultats (max 25, timeout 60s)
  * 3. Vérifications:
  *    - Personnage vérifié par quelqu'un d'autre ? → REFUS
- *    - Utilisateur a déjà ce personnage ? → Affiche le statut existant
+ *    - Utilisateur a déjà ce personnage ? → Mise à jour comme /update (stats + pseudo sur ce serveur)
  *    - Autres claims non vérifiés existent ? → Enregistrement avec avertissement
  *    - Sinon → Enregistrement normal
  * 4. Mise à jour du nickname Discord (format: [TAG] Pseudo)
- * 5. Messages:
+ * 5. Messages (dans la langue de l'utilisateur):
  *    - Éphémère: Confirmation rapide
  *    - MP: Instructions de vérification détaillées
  *    - Public: Embed d'enregistrement + récapitulatif des personnages
+ *
+ * Les textes et embeds sont dans `../locales/*.json` et `../embeds/`.
  */
 export default class RegisterCommand extends BaseCommand {
     public name = 'register';
-    public description = 'Enregistrer votre compte Albion Online';
+    public description = tracerTranslations.defaultText('commands.register.description');
 
     private readonly albionService: AlbionService;
     private readonly tracerService: TracerService;
+    private readonly updateHandler: CharacterUpdateHandler;
     private readonly logger: LoggerService;
 
-    /** Nombre maximum d'options d'un menu déroulant Discord */
-    private readonly MAX_SELECT_OPTIONS = 25;
     private readonly SELECTION_TIMEOUT_MS = 60_000;
 
     /**
-     * Crée une instance de la commande /register
+     * @param albionService - Client API Albion (injection pour les tests)
+     * @param tracerService - Accès aux personnages en base (injection pour les tests)
+     * @param logger - Logger (injection pour les tests)
      *
      * @remarks
-     * Le logger provient du ServiceContainer ; AlbionService et TracerService
-     * s'appuient eux aussi sur les services partagés (pool MySQL unique).
+     * Sans paramètre (chargement par Bot.ts), les services partagés sont utilisés.
      */
-    constructor() {
+    constructor(albionService?: AlbionService, tracerService?: TracerService, logger?: LoggerService) {
         super();
-        const services = ServiceContainer.getInstance();
-        this.logger = services.logger;
-        this.albionService = new AlbionService();
-        this.tracerService = new TracerService();
+        this.logger = logger ?? ServiceContainer.getInstance().logger;
+        this.albionService = albionService ?? new AlbionService(this.logger);
+        this.tracerService = tracerService ?? new TracerService(undefined, this.logger);
+        this.updateHandler = new CharacterUpdateHandler(
+            new CharacterSyncService(this.albionService, this.tracerService, this.logger),
+            this.logger
+        );
     }
 
     /**
-     * Construit la définition de la commande slash pour l'API Discord
-     *
-     * @returns SlashCommandBuilder avec l'option requise `pseudo`
+     * Construit la définition de la commande slash (descriptions traduites par Discord)
      */
     public buildCommand(): SlashCommandBuilder {
         return new SlashCommandBuilder()
             .setName(this.name)
             .setDescription(this.description)
+            .setDescriptionLocalizations(tracerTranslations.discordLocalizations('commands.register.description'))
             .addStringOption((option) =>
                 option
                     .setName('pseudo')
-                    .setDescription('Votre pseudo en jeu sur Albion Online')
+                    .setDescription(tracerTranslations.defaultText('commands.register.options.pseudo'))
+                    .setDescriptionLocalizations(tracerTranslations.discordLocalizations('commands.register.options.pseudo'))
                     .setRequired(true)
             ) as SlashCommandBuilder;
     }
@@ -117,12 +118,13 @@ export default class RegisterCommand extends BaseCommand {
      * @remarks
      * 0 résultat → message d'erreur, 1 résultat → enregistrement direct,
      * plusieurs résultats → menu de sélection.
-     * Les erreurs API (timeout, rate limit…) sont traduites via getAlbionApiErrorMessage().
      */
     public async execute(interaction: ChatInputCommandInteraction): Promise<void> {
         const pseudo = interaction.options.getString('pseudo', true);
 
         await interaction.deferReply({ flags: MessageFlagsBitField.Flags.Ephemeral });
+
+        const translate = tracerTranslations.forLocale(await this.resolveLocale(interaction));
 
         try {
             this.logger.debug(`Recherche du joueur: ${pseudo}`, 'tracer');
@@ -130,24 +132,19 @@ export default class RegisterCommand extends BaseCommand {
             const players = await this.albionService.searchPlayer(pseudo);
 
             if (players.length === 0) {
-                await interaction.editReply({
-                    content: `❌ Aucun joueur trouvé avec le pseudo "${pseudo}" sur Albion Online.`,
-                });
+                await interaction.editReply({ content: translate('register.playerNotFound', { pseudo }) });
                 return;
             }
 
             if (players.length === 1) {
-                await this.handlePlayerRegistration(interaction, players[0]);
+                await this.handlePlayerRegistration(interaction, translate, players[0]);
                 return;
             }
 
-            await this.showPlayerSelection(interaction, players);
+            await this.showPlayerSelection(interaction, translate, players);
         } catch (error: any) {
             this.logger.error('Erreur lors de l\'enregistrement', 'tracer', error);
-
-            await interaction.editReply({
-                content: getAlbionApiErrorMessage(error),
-            });
+            await interaction.editReply({ content: getAlbionApiErrorMessage(error, translate) });
         }
     }
 
@@ -155,29 +152,25 @@ export default class RegisterCommand extends BaseCommand {
      * Gère l'enregistrement d'un joueur après vérifications de conflits
      *
      * @param interaction - L'interaction Discord
+     * @param translate - Traductions dans la langue de l'utilisateur
      * @param player - Le personnage Albion sélectionné
      *
      * @remarks
      * Ordre des vérifications:
      * 1. Vérifié par quelqu'un d'autre → refus
-     * 2. Déjà enregistré par l'utilisateur → affichage du statut
+     * 2. Déjà enregistré par l'utilisateur → mise à jour (flux de /update)
      * 3. Revendiqué (non vérifié) par d'autres → enregistrement avec avertissement
      * 4. Aucun conflit → enregistrement standard
      */
     private async handlePlayerRegistration(
         interaction: ChatInputCommandInteraction,
+        translate: TracerTranslator,
         player: AlbionPlayer
     ): Promise<void> {
         const verifiedOwner = await this.tracerService.isCharacterVerifiedByOther(player.Id, interaction.user.id);
 
         if (verifiedOwner) {
-            const embed = buildCharacterAlreadyVerifiedEmbed(
-                verifiedOwner,
-                player.Name,
-                this.albionService.formatFame(player.KillFame),
-                player.GuildName || undefined
-            );
-
+            const embed = buildCharacterAlreadyVerifiedEmbed(translate, verifiedOwner, fromAlbionPlayer(player));
             await interaction.editReply({ embeds: [embed], components: [] });
             return;
         }
@@ -188,7 +181,10 @@ export default class RegisterCommand extends BaseCommand {
         );
 
         if (existingRegistration) {
-            await this.handleAlreadyRegistered(interaction, player);
+            // Déjà lié (ex: retour sur un serveur quitté, ou autre serveur utilisant le bot) :
+            // on exécute directement le flux de /update au lieu d'un message "déjà enregistré"
+            // qui n'indiquait pas quoi faire pour être renommé sur ce serveur
+            await this.updateHandler.updateAndReply(interaction, translate, existingRegistration);
             return;
         }
 
@@ -196,107 +192,36 @@ export default class RegisterCommand extends BaseCommand {
 
         if (unverifiedClaimsCount > 0) {
             const allClaims = await this.tracerService.getAllClaimsForCharacter(player.Id);
-            await this.registerPlayerWithWarning(interaction, player, allClaims);
+            await this.registerPlayerWithWarning(interaction, translate, player, allClaims);
             return;
         }
 
-        await this.registerPlayer(interaction, player);
-    }
-
-    /**
-     * Affiche le statut d'un personnage déjà lié au compte de l'utilisateur
-     *
-     * @param interaction - L'interaction Discord
-     * @param player - Le personnage Albion que l'utilisateur possède déjà
-     *
-     * @remarks
-     * Vert si vérifié, rouge avec rappel de la procédure de vérification sinon.
-     */
-    private async handleAlreadyRegistered(
-        interaction: ChatInputCommandInteraction,
-        player: AlbionPlayer
-    ): Promise<void> {
-        const isVerified = await this.tracerService.isAlbionCharacterVerified(player.Id);
-
-        const embed = new EmbedBuilder()
-            .setColor(isVerified ? '#2ECC71' : '#FF6B6B')
-            .setTitle(isVerified ? '✅ Personnage déjà enregistré et vérifié' : '⚠️ Personnage déjà enregistré')
-            .setDescription(
-                `Ce personnage est déjà lié à votre compte Discord.\n\n` +
-                `**Albion :** ${player.Name}\n` +
-                `**Kill Fame :** ${this.albionService.formatFame(player.KillFame)}\n` +
-                `**Guilde :** ${player.GuildName || 'Aucune'}\n` +
-                `**Alliance :** ${player.AllianceName || 'Aucune'}\n` +
-                `**Statut :** ${isVerified ? '🔒 Vérifié' : '⚠️ Non vérifié'}`
-            )
-            .setTimestamp();
-
-        if (!isVerified) {
-            embed.addFields({
-                name: '💡 Conseil',
-                value:
-                    `Pour **sécuriser** ce personnage, vérifiez-le en envoyant un mail in-game à **DBcide** ` +
-                    `avec votre Discord ID (\`${interaction.user.id}\`). Cela empêchera d'autres joueurs de le revendiquer.`,
-                inline: false
-            });
-        }
-
-        await interaction.editReply({ embeds: [embed], components: [] });
+        await this.registerPlayer(interaction, translate, player);
     }
 
     /**
      * Affiche un menu déroulant quand plusieurs joueurs correspondent à la recherche
      *
      * @param interaction - L'interaction Discord
+     * @param translate - Traductions dans la langue de l'utilisateur
      * @param players - Liste des joueurs trouvés via l'API Albion
      *
      * @remarks
      * - 25 options maximum (limite Discord), timeout de 60 secondes
      * - Seul l'auteur de la commande peut sélectionner
-     * - Une seule sélection est traitée : le collector est arrêté dès la première,
-     *   ce qui évite un double enregistrement si l'utilisateur change d'avis
-     * - Le handler `collect` tourne après la fin de execute() : ses erreurs sont
-     *   donc gérées ici (sinon promesse rejetée non gérée et utilisateur sans réponse)
+     * - Une seule sélection est traitée : le collector est arrêté dès la première
+     * - Le handler `collect` tourne après la fin de execute() : ses erreurs sont gérées ici
      */
     private async showPlayerSelection(
         interaction: ChatInputCommandInteraction,
+        translate: TracerTranslator,
         players: AlbionPlayer[]
     ): Promise<void> {
-        const displayedPlayers = players.slice(0, this.MAX_SELECT_OPTIONS);
-
-        const options = displayedPlayers.map((player, index) => ({
-            label: `${index + 1}. ${player.Name}`,
-            description: `Kill Fame: ${this.albionService.formatFame(player.KillFame)} | ${
-                player.GuildName || 'Aucune guilde'
-            }`,
-            value: player.Id,
-        }));
-
-        const selectMenu = new StringSelectMenuBuilder()
-            .setCustomId('select-player')
-            .setPlaceholder('Sélectionnez votre personnage')
-            .addOptions(options);
-
-        const row = new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(selectMenu);
-
-        const embed = new EmbedBuilder()
-            .setColor('#4A90E2')
-            .setTitle('🔍 Plusieurs joueurs trouvés')
-            .setDescription(
-                `Plusieurs joueurs correspondent à votre recherche. Sélectionnez le bon :\n\n` +
-                displayedPlayers
-                    .map(
-                        (p, i) =>
-                            `**${i + 1}.** ${p.Name} - Kill Fame: ${this.albionService.formatFame(
-                                p.KillFame
-                            )}`
-                    )
-                    .join('\n')
-            );
+        const views = players.map(fromAlbionPlayer);
 
         const response = await interaction.editReply({
-            embeds: [embed],
-            components: [row],
+            embeds: [buildPlayerSelectionEmbed(translate, views)],
+            components: [buildPlayerSelectMenu(translate, views)],
         });
 
         const collector = response.createMessageComponentCollector({
@@ -307,8 +232,12 @@ export default class RegisterCommand extends BaseCommand {
         collector.on('collect', async (selectInteraction) => {
             try {
                 if (selectInteraction.user.id !== interaction.user.id) {
+                    // Réponse dans la langue de celui qui a cliqué, pas de l'auteur de la commande
+                    const translateForClicker = tracerTranslations.forLocale(
+                        await ServiceContainer.getInstance().locale.resolveForInteraction(selectInteraction)
+                    );
                     await selectInteraction.reply({
-                        content: '❌ Ce menu ne vous est pas destiné.',
+                        content: translateForClicker('common.menu.notForYou'),
                         flags: MessageFlagsBitField.Flags.Ephemeral,
                     });
                     return;
@@ -316,12 +245,11 @@ export default class RegisterCommand extends BaseCommand {
 
                 collector.stop('selected');
 
-                const selectedPlayerId = selectInteraction.values[0];
-                const selectedPlayer = players.find((p) => p.Id === selectedPlayerId);
+                const selectedPlayer = players.find((player) => player.Id === selectInteraction.values[0]);
 
                 if (!selectedPlayer) {
                     await selectInteraction.update({
-                        content: '❌ Erreur : joueur introuvable.',
+                        content: translate('register.selectedPlayerNotFound'),
                         embeds: [],
                         components: [],
                     });
@@ -329,40 +257,32 @@ export default class RegisterCommand extends BaseCommand {
                 }
 
                 await selectInteraction.deferUpdate();
-                await this.handlePlayerRegistration(interaction, selectedPlayer);
+                await this.handlePlayerRegistration(interaction, translate, selectedPlayer);
             } catch (error) {
                 this.logger.error('Erreur lors de la sélection du joueur', 'tracer', error);
-                await this.safeEditReply(interaction, getAlbionApiErrorMessage(error));
+                await this.safeEditReply(interaction, getAlbionApiErrorMessage(error, translate));
             }
         });
 
         collector.on('end', async (_collected, reason) => {
             if (reason === 'time') {
-                await this.safeEditReply(interaction, '⏱️ Temps écoulé. Veuillez réessayer la commande.');
+                await this.safeEditReply(interaction, translate('common.menu.timeout'));
             }
         });
     }
 
     /**
      * Enregistre un personnage Albion sans conflit (cas standard)
-     *
-     * @param interaction - L'interaction Discord
-     * @param player - Le personnage Albion à enregistrer
      */
     private async registerPlayer(
         interaction: ChatInputCommandInteraction,
+        translate: TracerTranslator,
         player: AlbionPlayer
     ): Promise<void> {
-        await this.completeRegistration(interaction, player, {
-            mainEmbed: buildRegistrationSuccessEmbed(
-                interaction.user.id,
-                player.Name,
-                this.albionService.formatFame(player.KillFame),
-                player.GuildName,
-                player.AllianceName
-            ),
-            verificationEmbed: buildVerificationInstructionsEmbed(player.Name, interaction.user.id),
-            confirmationMessage: '✅ Enregistrement réussi ! Un message public a été envoyé et les instructions de vérification vous ont été envoyées en MP.',
+        await this.completeRegistration(interaction, translate, player, {
+            mainEmbed: buildRegistrationSuccessEmbed(translate, interaction.user.id, fromAlbionPlayer(player)),
+            verificationEmbed: buildVerificationInstructionsEmbed(translate, player.Name, interaction.user.id),
+            confirmationMessage: translate('register.success'),
             errorLogMessage: 'Erreur lors de l\'enregistrement final',
         });
     }
@@ -370,35 +290,27 @@ export default class RegisterCommand extends BaseCommand {
     /**
      * Enregistre un personnage Albion déjà revendiqué (non vérifié) par d'autres utilisateurs
      *
-     * @param interaction - L'interaction Discord
-     * @param player - Le personnage Albion à enregistrer
      * @param existingClaims - Revendications existantes des autres utilisateurs
      *
      * @remarks
-     * Même séquence que registerPlayer() mais avec des embeds d'avertissement listant
-     * les autres revendicateurs. Le premier à se faire vérifier verrouille le personnage.
+     * Embeds d'avertissement listant les autres revendicateurs.
+     * Le premier à se faire vérifier verrouille le personnage.
      */
     private async registerPlayerWithWarning(
         interaction: ChatInputCommandInteraction,
+        translate: TracerTranslator,
         player: AlbionPlayer,
         existingClaims: TracerUser[]
     ): Promise<void> {
-        const otherClaimants = existingClaims
-            .map(claim => `<@${claim.discord_id}>`)
-            .join(', ');
-
-        await this.completeRegistration(interaction, player, {
+        await this.completeRegistration(interaction, translate, player, {
             mainEmbed: buildRegistrationWithWarningEmbed(
+                translate,
                 interaction.user.id,
-                player.Name,
-                this.albionService.formatFame(player.KillFame),
-                player.GuildName,
-                player.AllianceName,
-                otherClaimants,
-                existingClaims.length
+                fromAlbionPlayer(player),
+                existingClaims.map(claim => claim.discord_id)
             ),
-            verificationEmbed: buildVerificationWarningEmbed(interaction.user.id),
-            confirmationMessage: '⚠️ Personnage enregistré avec avertissement. Vérifiez-le pour le sécuriser ! Les instructions vous ont été envoyées en MP.',
+            verificationEmbed: buildVerificationWarningEmbed(translate, interaction.user.id),
+            confirmationMessage: translate('register.successWithWarning'),
             errorLogMessage: 'Erreur lors de l\'enregistrement avec avertissement',
         });
     }
@@ -406,19 +318,15 @@ export default class RegisterCommand extends BaseCommand {
     /**
      * Séquence commune d'enregistrement : DB, pseudo, puis messages éphémère / MP / public
      *
-     * @param interaction - L'interaction Discord
-     * @param player - Le personnage Albion à enregistrer
-     * @param messages - Embeds et textes propres au type d'enregistrement
-     *
      * @remarks
      * L'échec du MP (DMs fermés) ou du message public (permissions du salon) est
-     * seulement loggé : l'enregistrement a déjà réussi et l'utilisateur ne doit pas
-     * recevoir un faux message d'erreur.
+     * seulement loggé : l'enregistrement a déjà réussi.
      *
      * Erreur CHARACTER_VERIFIED_BY_OTHER (personnage vérifié entre-temps) : embed de refus.
      */
     private async completeRegistration(
         interaction: ChatInputCommandInteraction,
+        translate: TracerTranslator,
         player: AlbionPlayer,
         messages: RegistrationMessages
     ): Promise<void> {
@@ -434,7 +342,7 @@ export default class RegisterCommand extends BaseCommand {
             );
 
             const allCharacters = await this.tracerService.getRegisteredUsers(interaction.user.id);
-            const summaryEmbed = buildCharactersSummaryEmbed(allCharacters, this.albionService);
+            const summaryEmbed = buildCharactersSummaryEmbed(translate, allCharacters.map(fromTracerUser));
 
             await interaction.editReply({
                 content: messages.confirmationMessage,
@@ -460,14 +368,14 @@ export default class RegisterCommand extends BaseCommand {
 
             if (error.message?.startsWith('CHARACTER_VERIFIED_BY_OTHER:')) {
                 const verifiedOwner = error.message.split(':')[1];
-                const embed = buildCharacterAlreadyVerifiedEmbed(verifiedOwner);
+                const embed = buildCharacterAlreadyVerifiedEmbed(translate, verifiedOwner);
 
                 await interaction.editReply({ content: null, embeds: [embed], components: [] });
                 return;
             }
 
             await interaction.editReply({
-                content: '❌ Erreur lors de l\'enregistrement.',
+                content: translate('register.error'),
                 embeds: [],
                 components: [],
             });
@@ -476,9 +384,6 @@ export default class RegisterCommand extends BaseCommand {
 
     /**
      * Modifie la réponse éphémère sans jamais lever d'erreur
-     *
-     * @param interaction - L'interaction Discord d'origine
-     * @param content - Le texte à afficher (embeds et composants retirés)
      *
      * @remarks
      * Utilisé dans les handlers du collector, qui s'exécutent hors du try/catch de execute().

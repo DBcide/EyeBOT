@@ -14,7 +14,7 @@ import { LoggerService } from '../../../shared/services/LoggerService';
  * - Erreurs internes de Discord.js
  *
  * **Actions effectuées**:
- * 1. Log console error avec emoji ❌ et stack trace complète
+ * 1. Log console error avec stack trace complète
  * 2. Enregistrement dans system_logs pour traçabilité
  *
  * **Données loggées**:
@@ -39,8 +39,8 @@ export default class ErrorEvent extends BaseEvent {
     public name = Events.Error;
     public once = false;
 
-    private logger: LoggerService;
-    private services: ServiceContainer;
+    private readonly logger: LoggerService;
+    private readonly services: ServiceContainer;
 
     /**
      * Crée une instance de l'événement Error
@@ -68,7 +68,7 @@ export default class ErrorEvent extends BaseEvent {
      * 2. Le même appel l'enregistre dans system_logs:
      *    - level: 'error'
      *    - category: 'discord'
-     *    - message: "❌ Erreur Discord: {error.message}"
+     *    - message: "Erreur Discord: {error.message}"
      *    - context: { name, message, stack }
      *
      * **Gestion des erreurs**:
@@ -97,6 +97,6 @@ export default class ErrorEvent extends BaseEvent {
     public async execute(error: Error): Promise<void> {
         // logger.error écrit déjà dans system_logs (avec name, message et stack en contexte) :
         // un appel supplémentaire à dbLogger.logSystem() créait une ligne en double
-        this.logger.error(`❌ Erreur Discord: ${error.message}`, 'discord', error);
+        this.logger.error(`Erreur Discord: ${error.message}`, 'discord', error);
     }
 }

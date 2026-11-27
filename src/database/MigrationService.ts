@@ -1,7 +1,7 @@
 import { DatabaseService } from '../shared/services/DatabaseService';
 import { LoggerService } from '../shared/services/LoggerService';
 import { Migration } from './Migration';
-import mysql from 'mysql2/promise';
+import type mysql from 'mysql2/promise';
 
 /**
  * Service de gestion des migrations de base de données avec tracking et rollback
@@ -49,8 +49,8 @@ import mysql from 'mysql2/promise';
  * @see src/database/migrations/index.ts - Liste ordonnée des migrations
  */
 export class MigrationService {
-    private db: DatabaseService;
-    private logger: LoggerService;
+    private readonly db: DatabaseService;
+    private readonly logger: LoggerService;
 
     /**
      * Crée une instance du service de migrations
@@ -209,17 +209,17 @@ export class MigrationService {
         await this.db.testConnection();
         await this.ensureMigrationsTable();
 
-        this.logger.info(`📊 Vérification de ${migrations.length} migration(s)...`, 'database');
+        this.logger.info(`Vérification de ${migrations.length} migration(s)...`, 'database');
 
         let executedCount = 0;
 
         for (const migration of migrations) {
             if (await this.isMigrationExecuted(migration.name)) {
-                this.logger.debug(`⏭️  Migration déjà exécutée: ${migration.name}`, 'database');
+                this.logger.debug(`Migration déjà exécutée: ${migration.name}`, 'database');
                 continue;
             }
 
-            this.logger.info(`🔄 Exécution de la migration: ${migration.name}`, 'database');
+            this.logger.info(`Exécution de la migration: ${migration.name}`, 'database');
 
             const connection = await this.db.beginTransaction();
 
@@ -228,19 +228,19 @@ export class MigrationService {
                 await this.recordMigration(connection, migration.name);
                 await this.db.commit(connection);
 
-                this.logger.success(`✅ Migration réussie: ${migration.name}`, 'database');
+                this.logger.success(`Migration réussie: ${migration.name}`, 'database');
                 executedCount++;
             } catch (error) {
+                // Le log "Exécution de la migration: X" précède : le script logue l'erreur une seule fois
                 await this.db.rollback(connection);
-                this.logger.error(`❌ Échec de la migration: ${migration.name}`, 'database', error);
                 throw error;
             }
         }
 
         if (executedCount === 0) {
-            this.logger.info('✅ Toutes les migrations sont à jour', 'database');
+            this.logger.info('Toutes les migrations sont à jour', 'database');
         } else {
-            this.logger.success(`✅ ${executedCount} migration(s) exécutée(s) avec succès`, 'database');
+            this.logger.success(`${executedCount} migration(s) exécutée(s) avec succès`, 'database');
         }
     }
 
@@ -304,18 +304,18 @@ export class MigrationService {
         );
 
         if (!lastMigration) {
-            this.logger.warn('⚠️  Aucune migration à annuler', 'database');
+            this.logger.warn('Aucune migration à annuler', 'database');
             return;
         }
 
-        const migration = migrations.find(m => m.name === lastMigration.name);
+        const migration = migrations.find(candidate => candidate.name === lastMigration.name);
 
         if (!migration) {
-            this.logger.error(`❌ Migration introuvable: ${lastMigration.name}`, 'database');
+            // Logué une seule fois par le script appelant
             throw new Error(`Migration introuvable: ${lastMigration.name}`);
         }
 
-        this.logger.info(`🔄 Annulation de la migration: ${migration.name}`, 'database');
+        this.logger.info(`Annulation de la migration: ${migration.name}`, 'database');
 
         const connection = await this.db.beginTransaction();
 
@@ -324,10 +324,10 @@ export class MigrationService {
             await this.removeMigration(connection, migration.name);
             await this.db.commit(connection);
 
-            this.logger.success(`✅ Migration annulée: ${migration.name}`, 'database');
+            this.logger.success(`Migration annulée: ${migration.name}`, 'database');
         } catch (error) {
+            // Le log "Annulation de la migration: X" précède : le script logue l'erreur une seule fois
             await this.db.rollback(connection);
-            this.logger.error(`❌ Échec de l'annulation: ${migration.name}`, 'database', error);
             throw error;
         }
     }
@@ -348,7 +348,7 @@ export class MigrationService {
      * - Si aucune migration: "Aucune migration exécutée"
      * - Si migrations présentes:
      *   ```
-     *   📊 Migrations exécutées (X):
+     *   Migrations exécutées (X):
      *      1. YYYYMMDD_HHMMSS_description - YYYY-MM-DD HH:MM:SS
      *      2. YYYYMMDD_HHMMSS_description - YYYY-MM-DD HH:MM:SS
      *      ...
@@ -377,6 +377,16 @@ export class MigrationService {
      * // Affiche la liste complète des migrations exécutées
      * ```
      */
+    /**
+     * Ferme le pool de connexions du service (à appeler en fin de script)
+     *
+     * @remarks
+     * Sans cette fermeture, les connexions MySQL ouvertes gardent le processus en vie.
+     */
+    public async close(): Promise<void> {
+        await this.db.close();
+    }
+
     public async listExecutedMigrations(): Promise<void> {
         await this.db.testConnection();
         await this.ensureMigrationsTable();
@@ -390,9 +400,9 @@ export class MigrationService {
             return;
         }
 
-        this.logger.info(`📊 Migrations exécutées (${migrations.length}):`, 'database');
-        migrations.forEach((m, i) => {
-            this.logger.info(`   ${i + 1}. ${m.name} - ${m.executed_at}`, 'database');
+        this.logger.info(`Migrations exécutées (${migrations.length}):`, 'database');
+        migrations.forEach((executedMigration, index) => {
+            this.logger.info(`   ${index + 1}. ${executedMigration.name} - ${executedMigration.executed_at}`, 'database');
         });
     }
 }

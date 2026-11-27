@@ -12,8 +12,9 @@ import { BaseEvent } from './BaseEvent';
 import { LoggerService } from '../shared/services/LoggerService';
 import { ServiceContainer } from '../shared/services/ServiceContainer';
 import { HealthMonitorService } from '../shared/services/HealthMonitorService';
-import fs from 'fs';
-import path from 'path';
+import { commonTranslations } from '../shared/i18n';
+import fs from 'node:fs';
+import path from 'node:path';
 
 /**
  * Classe principale du bot qui gère l'initialisation et l'orchestration
@@ -25,9 +26,9 @@ import path from 'path';
 export class Bot {
     public client: Client;
     public commands: Collection<string, BaseCommand>;
-    private logger: LoggerService;
-    private services: ServiceContainer;
-    private healthMonitor: HealthMonitorService;
+    private readonly logger: LoggerService;
+    private readonly services: ServiceContainer;
+    private readonly healthMonitor: HealthMonitorService;
 
     /**
      * Crée une nouvelle instance du bot
@@ -82,7 +83,7 @@ export class Bot {
     public async start(): Promise<void> {
         await this.services.database.testConnection();
 
-        this.logger.info('🚀 Démarrage du bot...', 'startup');
+        this.logger.info('Démarrage du bot...', 'startup');
 
         await this.loadCommands();
         await this.loadEvents();
@@ -92,7 +93,7 @@ export class Bot {
         // être émis avant l'enregistrement et le health monitor ne démarre jamais.
         this.client.once(Events.ClientReady, () => {
             this.healthMonitor.start(this.client);
-            this.logger.success('✅ Bot démarré et connecté à Discord', 'startup');
+            this.logger.success('Bot démarré et connecté à Discord', 'startup');
         });
 
         await this.client.login(process.env.DISCORD_TOKEN);
@@ -115,7 +116,7 @@ export class Bot {
         const featuresPath = path.join(__dirname, '../features');
 
         if (!fs.existsSync(featuresPath)) {
-            this.logger.warn('⚠️  Aucun dossier features trouvé', 'startup');
+            this.logger.warn('Aucun dossier features trouvé', 'startup');
             return;
         }
 
@@ -145,7 +146,7 @@ export class Bot {
             }
         }
 
-        this.logger.info(`📦 Total: ${this.commands.size} commande(s) chargée(s)`, 'startup');
+        this.logger.info(`Total: ${this.commands.size} commande(s) chargée(s)`, 'startup');
     }
 
     /**
@@ -166,7 +167,7 @@ export class Bot {
         const featuresPath = path.join(__dirname, '../features');
 
         if (!fs.existsSync(featuresPath)) {
-            this.logger.warn('⚠️  Aucun dossier features trouvé', 'startup');
+            this.logger.warn('Aucun dossier features trouvé', 'startup');
             return;
         }
 
@@ -210,7 +211,7 @@ export class Bot {
             }
         }
 
-        this.logger.info(`📦 Total: ${eventCount} événement(s) chargé(s)`, 'startup');
+        this.logger.info(`Total: ${eventCount} événement(s) chargé(s)`, 'startup');
     }
 
     /**
@@ -235,6 +236,9 @@ export class Bot {
 
             return users[0].albion_id;
         } catch (error) {
+            // Non bloquant : le log de commande sera simplement enregistré sans personnage
+            const errorMessage = error instanceof Error ? error.message : String(error);
+            this.logger.debug(`Personnage principal introuvable pour ${discordId}: ${errorMessage}`, 'discord');
             return null;
         }
     }
@@ -285,7 +289,7 @@ export class Bot {
                 });
 
                 const duration = Date.now() - startTime;
-                this.logger.debug(`✅ Commande /${interaction.commandName} terminée en ${duration}ms`, 'discord');
+                this.logger.debug(`Commande /${interaction.commandName} terminée en ${duration}ms`, 'discord');
             } catch (error: any) {
                 this.logger.error(`Erreur lors de l'exécution de /${interaction.commandName}`, 'discord', error);
 
@@ -317,12 +321,13 @@ export class Bot {
      * promesse rejetée non gérée depuis le listener InteractionCreate.
      */
     private async replyWithError(interaction: ChatInputCommandInteraction): Promise<void> {
-        const errorMessage = {
-            content: '❌ Une erreur est survenue lors de l\'exécution de cette commande.',
-            flags: MessageFlags.Ephemeral,
-        } as const;
-
         try {
+            const translate = commonTranslations.forLocale(await this.services.locale.resolveForInteraction(interaction));
+            const errorMessage = {
+                content: translate('common.errors.command'),
+                flags: MessageFlags.Ephemeral,
+            } as const;
+
             if (interaction.replied || interaction.deferred) {
                 await interaction.followUp(errorMessage);
             } else {
@@ -367,29 +372,27 @@ export class Bot {
      * ```
      */
     public async shutdown(reason: string): Promise<void> {
-        this.logger.warn(`🛑 Arrêt du bot: ${reason}`, 'shutdown');
+        // Seul log annonçant l'arrêt (index.ts ne le relogue pas). Chaque étape ci-dessous
+        // est loguée par le service concerné : on ne la répète pas ici.
+        this.logger.warn(`Arrêt du bot: ${reason}`, 'shutdown');
 
         try {
             this.healthMonitor.stop();
-            this.logger.info('✅ Health Monitor arrêté', 'shutdown');
 
             // destroy() est appelé même si le client n'est pas "ready" (ex: reconnexion en cours),
             // sinon la websocket resterait ouverte pendant l'arrêt
             await this.client.destroy();
-            this.logger.info('✅ Déconnexion Discord réussie', 'shutdown');
-
-            this.logger.info('⏳ Fermeture de la connexion DB...', 'shutdown');
+            this.logger.info('Déconnexion Discord réussie', 'shutdown');
 
             // Les logs partent en base en arrière-plan : on attend qu'ils soient écrits
             // avant de fermer le pool, sinon les logs d'arrêt sont perdus ("Pool is closed")
             await this.logger.flush();
             await this.services.database.close();
 
-            // Après fermeture du pool, ces logs ne sont plus qu'en console
-            this.logger.info('✅ Connexion DB fermée', 'shutdown');
-            this.logger.success('✅ Arrêt propre du bot terminé', 'shutdown');
+            // Après fermeture du pool, ce log n'est plus qu'en console
+            this.logger.success('Arrêt propre du bot terminé', 'shutdown');
         } catch (error) {
-            this.logger.error('❌ Erreur lors de l\'arrêt du bot', 'shutdown', error);
+            this.logger.error('Erreur lors de l\'arrêt du bot', 'shutdown', error);
         }
     }
 }

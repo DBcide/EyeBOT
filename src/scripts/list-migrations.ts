@@ -2,24 +2,21 @@
 import 'dotenv/config';
 import { MigrationService } from '../database/MigrationService';
 import { LoggerService } from '../shared/services/LoggerService';
+import { exitGracefully } from '../shared/utils/exitGracefully';
 
 const logger = new LoggerService();
 
-async function listMigrations() {
+async function listMigrations(): Promise<void> {
+    const migrationService = new MigrationService();
+
     try {
-        logger.info('📋 Liste des migrations exécutées...', 'database');
-
-        const migrationService = new MigrationService();
-
-        // Lister toutes les migrations exécutées
+        logger.info('Liste des migrations exécutées...', 'database');
         await migrationService.listExecutedMigrations();
-
-        process.exit(0);
+        await exitGracefully(0, () => migrationService.close());
     } catch (error) {
-        logger.error('❌ Erreur lors de la récupération des migrations', 'database', error);
-        process.exit(1);
+        logger.error('Erreur lors de la récupération des migrations', 'database', error);
+        await exitGracefully(1, () => migrationService.close());
     }
 }
 
-// Exécuter le script
-listMigrations();
+void listMigrations();

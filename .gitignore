@@ -3,7 +3,7 @@ node_modules/
 dist/
 coverage/
 
-# Secrets (ne jamais committer)
+# Secrets
 .env
 .env.*
 
@@ -16,4 +16,4 @@ logs/
 .vscode/
 
 # Paramètres locaux Claude Code
-.claude/settings.local.json
+.claude/

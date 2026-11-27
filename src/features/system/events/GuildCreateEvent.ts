@@ -10,7 +10,7 @@ import { LoggerService } from '../../../shared/services/LoggerService';
  * **Déclenchement**: Chaque fois que le bot est ajouté à un serveur (invitation acceptée)
  *
  * **Actions effectuées**:
- * 1. Log console avec emoji 🎉 (success)
+ * 1. Log console (success)
  * 2. Enregistrement dans event_logs (table event_logs)
  * 3. Enregistrement dans system_logs pour traçabilité
  *
@@ -33,8 +33,8 @@ export default class GuildCreateEvent extends BaseEvent {
     public name = Events.GuildCreate;
     public once = false;
 
-    private logger: LoggerService;
-    private services: ServiceContainer;
+    private readonly logger: LoggerService;
+    private readonly services: ServiceContainer;
 
     /**
      * Crée une instance de l'événement GuildCreate
@@ -72,7 +72,7 @@ export default class GuildCreateEvent extends BaseEvent {
     public async execute(guild: Guild): Promise<void> {
         // logger.success écrit déjà dans system_logs : le contexte y est joint directement
         // (un appel séparé à dbLogger.logSystem() créait une ligne en double)
-        this.logger.success(`🎉 Bot ajouté au serveur: ${guild.name} (ID: ${guild.id})`, 'discord', {
+        this.logger.success(`Bot ajouté au serveur: ${guild.name} (ID: ${guild.id})`, 'discord', {
             guildId: guild.id,
             guildName: guild.name,
             memberCount: guild.memberCount,

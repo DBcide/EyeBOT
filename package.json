@@ -1,6 +1,6 @@
 {
   "name": "eyebot",
-  "version": "1.0.0",
+  "version": "1.0.2",
   "description": "",
   "main": "dist/index.js",
   "scripts": {
@@ -13,7 +13,9 @@
     "migrate": "ts-node src/scripts/run-migrations.ts",
     "migrate:rollback": "ts-node src/scripts/rollback-migration.ts",
     "migrate:list": "ts-node src/scripts/list-migrations.ts",
-    "download:assets": "node download-weapon-assets.js"
+    "download:assets": "node download-weapon-assets.js",
+    "test": "jest",
+    "test:coverage": "jest --coverage --passWithNoTests"
   },
   "engines": {
     "node": ">=18"
@@ -23,10 +25,13 @@
   "dependencies": {
     "discord.js": "^14.25.1",
     "dotenv": "^16.6.1",
-    "mysql2": "^3.16.0"
+    "mysql2": "3.23.1"
   },
   "devDependencies": {
+    "@types/jest": "^30.0.0",
     "@types/node": "^24.10.4",
+    "jest": "^30.4.2",
+    "ts-jest": "^29.4.11",
     "ts-node": "^10.9.2",
     "typescript": "^5.9.3"
   }

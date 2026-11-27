@@ -1,6 +1,7 @@
 ﻿import { AlbionSearchResponse, AlbionPlayer, AlbionPlayerDetailed } from '../models/AlbionTypes';
 import { LoggerService } from '../../../shared/services/LoggerService';
 import { ServiceContainer } from '../../../shared/services/ServiceContainer';
+import { formatFame } from '../utils/FameUtils';
 
 /**
  * Service d'intégration avec l'API publique d'Albion Online
@@ -27,7 +28,7 @@ import { ServiceContainer } from '../../../shared/services/ServiceContainer';
 export class AlbionService {
     private readonly API_BASE_URL = 'https://gameinfo-ams.albiononline.com/api/gameinfo';
     private readonly TIMEOUT_MS = 10000;
-    private logger: LoggerService;
+    private readonly logger: LoggerService;
 
     /**
      * Crée une instance du service Albion API
@@ -36,8 +37,8 @@ export class AlbionService {
      * Utilise le LoggerService partagé du ServiceContainer (logs également persistés en base).
      * Le service est stateless et peut être instancié plusieurs fois.
      */
-    constructor() {
-        this.logger = ServiceContainer.getInstance().logger;
+    constructor(logger?: LoggerService) {
+        this.logger = logger ?? ServiceContainer.getInstance().logger;
     }
 
     /**
@@ -104,30 +105,25 @@ export class AlbionService {
      * ```
      */
     public async searchPlayer(playerName: string): Promise<AlbionPlayer[]> {
-        try {
-            const url = `${this.API_BASE_URL}/search?q=${encodeURIComponent(playerName)}`;
-            this.logger.debug(`Recherche Albion API: ${playerName}`, 'albion');
+        const url = `${this.API_BASE_URL}/search?q=${encodeURIComponent(playerName)}`;
+        this.logger.debug(`Recherche Albion API: ${playerName}`, 'albion');
 
-            const response = await this.fetchWithTimeout(url);
+        const response = await this.fetchWithTimeout(url);
 
-            if (!response.ok) {
-                if (response.status === 429) {
-                    throw new Error('Rate limit: Trop de requêtes à l\'API Albion. Réessayez dans quelques instants.');
-                }
-                throw new Error(`API Albion error: ${response.status} ${response.statusText}`);
+        if (!response.ok) {
+            if (response.status === 429) {
+                throw new Error('Rate limit: Trop de requêtes à l\'API Albion. Réessayez dans quelques instants.');
             }
-
-            const data = await response.json() as AlbionSearchResponse;
-            // L'API peut omettre la clé "players" : on évite un crash sur .length
-            const players = data?.players ?? [];
-
-            this.logger.debug(`Résultats trouvés: ${players.length} joueur(s)`, 'albion');
-
-            return players;
-        } catch (error) {
-            this.logger.error('Erreur lors de la recherche Albion', 'albion', error);
-            throw error;
+            throw new Error(`API Albion error: ${response.status} ${response.statusText}`);
         }
+
+        const data = await response.json() as AlbionSearchResponse;
+        // L'API peut omettre la clé "players" : on évite un crash sur .length
+        const players = data?.players ?? [];
+
+        this.logger.debug(`Résultats trouvés: ${players.length} joueur(s)`, 'albion');
+
+        return players;
     }
 
     /**
@@ -167,27 +163,22 @@ export class AlbionService {
      * ```
      */
     public async getPlayerDetailsById(playerId: string): Promise<AlbionPlayerDetailed | null> {
-        try {
-            const url = `${this.API_BASE_URL}/players/${encodeURIComponent(playerId)}`;
-            this.logger.debug(`Récupération détails joueur Albion: ${playerId}`, 'albion');
+        const url = `${this.API_BASE_URL}/players/${encodeURIComponent(playerId)}`;
+        this.logger.debug(`Récupération détails joueur Albion: ${playerId}`, 'albion');
 
-            const response = await this.fetchWithTimeout(url);
+        const response = await this.fetchWithTimeout(url);
 
-            if (!response.ok) {
-                if (response.status === 404) {
-                    return null;
-                }
-                if (response.status === 429) {
-                    throw new Error('Rate limit: Trop de requêtes à l\'API Albion. Réessayez dans quelques instants.');
-                }
-                throw new Error(`API Albion error: ${response.status} ${response.statusText}`);
+        if (!response.ok) {
+            if (response.status === 404) {
+                return null;
             }
-
-            return await response.json() as AlbionPlayerDetailed;
-        } catch (error) {
-            this.logger.error('Erreur lors de la récupération des détails du joueur', 'albion', error);
-            throw error;
+            if (response.status === 429) {
+                throw new Error('Rate limit: Trop de requêtes à l\'API Albion. Réessayez dans quelques instants.');
+            }
+            throw new Error(`API Albion error: ${response.status} ${response.statusText}`);
         }
+
+        return await response.json() as AlbionPlayerDetailed;
     }
 
     /**
@@ -196,31 +187,10 @@ export class AlbionService {
      * @param fame - La valeur de fame à formater (nombre entier)
      * @returns La valeur formatée avec unité (B, M, K) ou le nombre brut si < 1000
      *
-     * @remarks
-     * Règles de formatage:
-     * - >= 1 milliard: Divisé par 1B, 2 décimales (ex: 1234567890 -> "1.23B")
-     * - >= 1 million: Divisé par 1M, 2 décimales (ex: 1234567 -> "1.23M")
-     * - >= 1 000: Divisé par 1K, 2 décimales (ex: 12345 -> "12.35K")
-     * - < 1 000: Nombre brut sans décimales (ex: 999 -> "999")
-     *
-     * Utilisé pour afficher les valeurs de KillFame et DeathFame dans les embeds Discord.
-     *
-     * @example
-     * ```typescript
-     * formatFame(1234567890) // "1.23B"
-     * formatFame(12345678)   // "12.35M"
-     * formatFame(12345)      // "12.35K"
-     * formatFame(999)        // "999"
-     * ```
+     * @deprecated Utiliser directement {@link formatFame} de `utils/FameUtils`
+     * (fonction pure, utilisable dans les builders d'embeds sans instance de service).
      */
     public formatFame(fame: number): string {
-        if (fame >= 1_000_000_000) {
-            return `${(fame / 1_000_000_000).toFixed(2)}B`;
-        } else if (fame >= 1_000_000) {
-            return `${(fame / 1_000_000).toFixed(2)}M`;
-        } else if (fame >= 1_000) {
-            return `${(fame / 1_000).toFixed(2)}K`;
-        }
-        return fame.toString();
+        return formatFame(fame);
     }
 }

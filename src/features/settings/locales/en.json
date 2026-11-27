@@ -1,0 +1,16 @@
+{
+  "commands": {
+    "language": {
+      "description": "Choose the language of the bot's replies",
+      "options": {
+        "language": "The language to use"
+      },
+      "auto": "Automatic (Discord language)"
+    }
+  },
+  "language": {
+    "updated": "\u2705 Language set to **{language}**. The bot will now reply to you in this language.",
+    "reset": "\u2705 Automatic mode: the bot will use your Discord client language (currently **{language}**).",
+    "error": "\u274C Unable to save your language. Please try again later."
+  }
+}

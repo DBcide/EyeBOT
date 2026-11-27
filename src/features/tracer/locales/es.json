@@ -1,0 +1,231 @@
+{
+  "commands": {
+    "register": {
+      "description": "Registrar tu cuenta de Albion Online",
+      "options": {
+        "pseudo": "Tu nombre de personaje en Albion Online"
+      }
+    },
+    "update": {
+      "description": "Actualizar la información de tu cuenta de Albion Online"
+    },
+    "updateall": {
+      "description": "Actualiza los apodos de todos los miembros registrados en el servidor"
+    },
+    "verify": {
+      "description": "[OWNER] Verificar un personaje de Albion para un usuario de Discord",
+      "options": {
+        "discordId": "El ID de Discord del usuario propietario del personaje",
+        "character": "El nombre del personaje de Albion que se va a verificar"
+      }
+    }
+  },
+  "labels": {
+    "none": "Ninguno",
+    "noGuild": "Sin gremio"
+  },
+  "register": {
+    "playerNotFound": "\u274C No se ha encontrado ningún jugador llamado \"{pseudo}\" en Albion Online.",
+    "selectedPlayerNotFound": "\u274C Error: jugador no encontrado.",
+    "success": "\u2705 ¡Registro completado! Se ha publicado un mensaje público y te hemos enviado las instrucciones de verificación por mensaje privado.",
+    "successWithWarning": "\u26A0\uFE0F Personaje registrado con una advertencia. ¡Verifícalo para protegerlo! Te hemos enviado las instrucciones por mensaje privado.",
+    "error": "\u274C Se ha producido un error durante el registro.",
+    "selection": {
+      "title": "\uD83D\uDD0D Se han encontrado varios jugadores",
+      "intro": "Varios jugadores coinciden con tu búsqueda. Selecciona el correcto:",
+      "line": "**{index}.** {name} - Kill Fame: {killFame}",
+      "placeholder": "Selecciona tu personaje",
+      "optionLabel": "{index}. {name}",
+      "optionDescription": "Kill Fame: {killFame} | {guild}"
+    },
+    "alreadyVerified": {
+      "title": "\u274C Personaje ya verificado",
+      "description": [
+        "Este personaje ya está vinculado y **verificado** por otra cuenta de Discord (<@{ownerId}>).",
+        "",
+        "\u26A0\uFE0F Un personaje verificado no puede vincularse a otra cuenta de Discord."
+      ],
+      "infoName": "\uD83D\uDCCB Información del personaje",
+      "infoValue": [
+        "**Albion:** {name}",
+        "**Kill Fame:** {killFame}",
+        "**Gremio:** {guild}"
+      ]
+    },
+    "successEmbed": {
+      "title": "\u2705 Nuevo personaje registrado",
+      "description": [
+        "**Discord:** <@{discordId}>",
+        "**Albion:** {name}",
+        "**Kill Fame:** {killFame}",
+        "**Gremio:** {guild}",
+        "**Alianza:** {alliance}"
+      ]
+    },
+    "warningEmbed": {
+      "title": "\u26A0\uFE0F Personaje registrado (reclamaciones múltiples)",
+      "description": [
+        "**Discord:** <@{discordId}>",
+        "**Albion:** {name}",
+        "**Kill Fame:** {killFame}",
+        "**Gremio:** {guild}",
+        "**Alianza:** {alliance}",
+        "",
+        "\u26A0\uFE0F **Atención:** este personaje también lo reclaman {count} usuario(s) más:",
+        "{claimants}",
+        "",
+        "Como estas cuentas no están verificadas, tú también puedes reclamarlo.",
+        "¡**Verifica tu cuenta** para ser el único propietario!"
+      ]
+    },
+    "summary": {
+      "title": "\uD83D\uDCCB Personajes vinculados a esta cuenta",
+      "empty": "No hay ningún personaje registrado.",
+      "line": "**{index}.** {name} - {killFame} Kill Fame {verified}",
+      "footer": "Total: {count} personaje(s) | \uD83D\uDD12 = Verificado"
+    },
+    "verificationInstructions": {
+      "title": "\uD83D\uDD12 ¡Protege tu personaje!",
+      "description": [
+        "Para **proteger** tu personaje e impedir que otros jugadores lo reclamen:",
+        "",
+        "**1.** Conéctate a **Albion Online** con el personaje **{name}**",
+        "**2.** Envía un **correo dentro del juego** a **{verifier}**",
+        "**3.** En el correo, indica tu ID de Discord: `{discordId}`",
+        "**4.** Espera a que un administrador lo valide",
+        "",
+        "\u26A0\uFE0F **Importante:** ¡el correo debe enviarlo el propio personaje de Albion!"
+      ],
+      "footer": "Una vez verificado, este personaje quedará vinculado de forma definitiva a tu cuenta de Discord"
+    },
+    "verificationWarning": {
+      "title": "\uD83D\uDD12 ¿Cómo verificar tu personaje?",
+      "description": [
+        "Para **proteger** tu personaje e impedir que otros jugadores lo reclamen:",
+        "",
+        "**1.** Conéctate a Albion Online con este personaje",
+        "**2.** Envía un correo dentro del juego a **{verifier}** con tu ID de Discord (`{discordId}`)",
+        "**3.** Espera a que un administrador lo valide",
+        "",
+        "Una vez verificado, este personaje quedará vinculado de forma definitiva a tu cuenta de Discord."
+      ],
+      "footer": "La verificación protege tu personaje contra reclamaciones fraudulentas"
+    }
+  },
+  "update": {
+    "noCharacters": [
+      "\u274C No tienes ninguna cuenta de Albion registrada.",
+      "Usa `/register` para registrar tu primer personaje."
+    ],
+    "error": "\u274C Se ha producido un error durante la actualización. Inténtalo de nuevo más tarde.",
+    "selectedCharacterNotFound": "\u274C Error: personaje no encontrado.",
+    "apiUnavailable": "\u274C No se ha podido obtener la información del personaje \"{name}\" desde la API de Albion.",
+    "selection": {
+      "title": "\uD83D\uDD04 Selecciona un personaje para actualizar",
+      "intro": "Tienes varios personajes registrados. Selecciona el que quieres actualizar:",
+      "line": "**{index}.** {name} - {killFame} Kill Fame",
+      "renameWarning": "\u26A0\uFE0F **Atención:** se cambiará tu apodo en este servidor por el del personaje seleccionado.",
+      "placeholder": "Selecciona el personaje que quieres actualizar",
+      "optionLabel": "{index}. {name}",
+      "optionDescription": "Kill Fame: {killFame} | {guild}"
+    },
+    "successEmbed": {
+      "title": "\u2705 Personaje actualizado",
+      "description": [
+        "¡Tu información se ha actualizado correctamente!",
+        "",
+        "**Albion:** {name}",
+        "**Kill Fame:** {killFame}",
+        "**Death Fame:** {deathFame}",
+        "**Gremio:** {guild}",
+        "**Alianza:** {alliance}"
+      ]
+    }
+  },
+  "updateAll": {
+    "noPermission": "\u274C No tienes permiso para gestionar los apodos.",
+    "guildOnly": "\u274C Este comando solo puede usarse en un servidor.",
+    "noMembers": "\uD83D\uDCED No se ha encontrado ningún miembro con una cuenta de Albion registrada.",
+    "criticalError": "\u274C Se ha producido un error crítico durante la actualización. Consulta los logs.",
+    "progress": {
+      "title": "\uD83D\uDD04 Actualización en curso...",
+      "start": [
+        "**Miembros por actualizar:** {total}",
+        "**Progreso:** 0/{total}",
+        "",
+        "\u23F3 Procesando, espera por favor..."
+      ],
+      "batch": [
+        "**Miembros por actualizar:** {total}",
+        "**Progreso:** {processed}/{total}",
+        "**Correctos:** {success} \u2705",
+        "**Omitidos:** {skipped} \u23ED\uFE0F",
+        "**Fallidos:** {failures} \u274C",
+        "",
+        "\u23F3 Lote {batch}/{totalBatches} terminado..."
+      ]
+    },
+    "summary": {
+      "title": "\u2705 Actualización terminada",
+      "description": [
+        "**Total de miembros procesados:** {total}",
+        "",
+        "\u2705 **Correctos:** {success}",
+        "\u23ED\uFE0F **Omitidos (no encontrados en la API):** {skipped}",
+        "\u274C **Fallidos:** {failures}"
+      ],
+      "failuresName": "\u274C Detalle de los fallos",
+      "moreFailures": "... y {count} más"
+    }
+  },
+  "verify": {
+    "noPermission": "\u274C No tienes permiso para usar este comando.",
+    "noCharacters": "\u274C El usuario <@{userId}> no tiene ningún personaje registrado.",
+    "characterNotLinked": [
+      "\u274C El personaje \"{name}\" no está vinculado a <@{userId}>.",
+      "",
+      "**Personajes disponibles:**",
+      "{characters}"
+    ],
+    "alreadyVerified": "\u26A0\uFE0F El personaje **{name}** ya está verificado para <@{userId}>.",
+    "error": "\u274C Se ha producido un error al verificar el personaje.",
+    "report": {
+      "title": "\u2705 Personaje verificado correctamente",
+      "description": [
+        "El personaje ha sido verificado y protegido.",
+        "",
+        "**Usuario de Discord:** <@{userId}>",
+        "**Personaje de Albion:** {name}",
+        "**ID de Albion:** `{albionId}`",
+        "**Gremio:** {guild}",
+        "**Alianza:** {alliance}"
+      ],
+      "removedClaimsName": "\uD83D\uDDD1\uFE0F Reclamaciones eliminadas ({count})",
+      "removedClaimLine": "• <@{userId}> (registrado el {date})",
+      "footer": "Verificado por {tag}"
+    },
+    "notification": {
+      "title": "\uD83D\uDD12 ¡Personaje verificado!",
+      "description": [
+        "Tu personaje **{name}** ha sido verificado y protegido.",
+        "",
+        "Este personaje queda vinculado de forma definitiva a tu cuenta de Discord y ningún otro jugador podrá reclamarlo."
+      ],
+      "infoName": "\uD83D\uDCCB Información",
+      "infoValue": [
+        "**Personaje:** {name}",
+        "**Gremio:** {guild}",
+        "**Alianza:** {alliance}"
+      ]
+    }
+  },
+  "errors": {
+    "albion": {
+      "unknown": "\u274C Se ha producido un error desconocido.",
+      "timeout": "\u274C La API de Albion tarda demasiado en responder. Inténtalo de nuevo en unos instantes.",
+      "rateLimit": "\u274C Demasiadas solicitudes a la API de Albion. Espera unos instantes antes de volver a intentarlo.",
+      "network": "\u274C No se ha podido contactar con la API de Albion. Comprueba tu conexión a internet.",
+      "generic": "\u274C Se ha producido un error al comunicarse con la API de Albion."
+    }
+  }
+}

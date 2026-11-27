@@ -1,0 +1,48 @@
+// Jest Snapshot v1, https://jestjs.io/docs/snapshot-testing
+
+exports[`VerifyEmbeds buildVerificationNotificationEmbed() [snapshot] notification envoyée en MP au propriétaire 1`] = `
+{
+  "color": 3066993,
+  "description": "Votre personnage **DBcide** a été vérifié et sécurisé.
+
+Ce personnage est maintenant définitivement lié à votre compte Discord et ne peut plus être revendiqué par d'autres joueurs.",
+  "fields": [
+    {
+      "inline": false,
+      "name": "📋 Informations",
+      "value": "**Personnage :** DBcide
+**Guilde :** Sunfall
+**Alliance :** RIOT",
+    },
+  ],
+  "timestamp": "2026-01-01T00:00:00.000Z",
+  "title": "🔒 Personnage vérifié !",
+}
+`;
+
+exports[`VerifyEmbeds buildVerificationReportEmbed() [snapshot] rapport avec revendications supprimées 1`] = `
+{
+  "color": 3066993,
+  "description": "Le personnage a été vérifié et sécurisé.
+
+**Utilisateur Discord :** <@target-1>
+**Personnage Albion :** DBcide
+**Albion ID :** \`player-abc\`
+**Guilde :** Sunfall
+**Alliance :** RIOT",
+  "fields": [
+    {
+      "inline": false,
+      "name": "🗑️ Revendications supprimées (2)",
+      "value": "• <@111> (enregistré le <t:1767225600:d>)
+• <@222> (enregistré le <t:1767225600:d>)",
+    },
+  ],
+  "footer": {
+    "icon_url": "https://cdn.example/avatar.png",
+    "text": "Vérifié par Admin#0001",
+  },
+  "timestamp": "2026-01-01T00:00:00.000Z",
+  "title": "✅ Personnage vérifié avec succès",
+}
+`;

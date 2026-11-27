@@ -1,6 +1,6 @@
 import { Client } from 'discord.js';
 import { LoggerService } from './LoggerService';
-import os from 'os';
+import os from 'node:os';
 
 /**
  * Interface pour les métriques système
@@ -69,7 +69,7 @@ export interface DiscordMetrics {
  * @see CLAUDE.md - Section "Health Monitoring" pour détails d'implémentation
  */
 export class HealthMonitorService {
-    private logger: LoggerService;
+    private readonly logger: LoggerService;
     private client?: Client;
     private intervalId?: NodeJS.Timeout;
     private heartbeatIntervalId?: NodeJS.Timeout;
@@ -79,11 +79,13 @@ export class HealthMonitorService {
     private readonly HEARTBEAT_URL?: string;
     private readonly MAX_MEMORY_MB: number;
 
-    private startTime: Date;
+    // Métriques de démarrage pour calculer les deltas
+    private readonly startTime: Date;
     private previousCpuUsage: NodeJS.CpuUsage;
 
-    private metricsHistory: SystemMetrics[] = [];
-    private readonly MAX_HISTORY_SIZE = 60;
+    // Historique des métriques (dernières 10 minutes)
+    private readonly metricsHistory: SystemMetrics[] = [];
+    private readonly MAX_HISTORY_SIZE = 60; // 60 entrées * 10 secondes = 10 minutes
 
     private readonly MAX_HEARTBEAT_RETRIES = 3;
     private readonly HEARTBEAT_RETRY_BASE_DELAY_MS = 1000;
@@ -155,8 +157,6 @@ export class HealthMonitorService {
     public start(client: Client): void {
         this.client = client;
 
-        this.logger.info('🏥 Démarrage du Health Monitor...', 'monitoring');
-
         this.intervalId = setInterval(() => {
             this.collectAndLogMetrics();
         }, this.MONITOR_INTERVAL_MS);
@@ -165,12 +165,12 @@ export class HealthMonitorService {
             this.heartbeatIntervalId = setInterval(() => {
                 this.sendHeartbeat();
             }, this.HEARTBEAT_INTERVAL_MS);
-            this.logger.info(`💓 Heartbeat configuré vers ${this.HEARTBEAT_URL} (intervalle: ${this.HEARTBEAT_INTERVAL_MS}ms)`, 'heartbeat');
+            this.logger.info(`Heartbeat configuré vers ${this.HEARTBEAT_URL} (intervalle: ${this.HEARTBEAT_INTERVAL_MS}ms)`, 'heartbeat');
         } else {
-            this.logger.warn('⚠️  Aucune URL de heartbeat configurée (HEARTBEAT_URL)', 'heartbeat');
+            this.logger.warn('Aucune URL de heartbeat configurée (HEARTBEAT_URL)', 'heartbeat');
         }
 
-        this.logger.success(`✅ Health Monitor démarré (intervalle: ${this.MONITOR_INTERVAL_MS}ms)`, 'monitoring');
+        this.logger.success(`Health Monitor démarré (intervalle: ${this.MONITOR_INTERVAL_MS}ms)`, 'monitoring');
     }
 
     /**
@@ -198,7 +198,7 @@ export class HealthMonitorService {
             this.heartbeatIntervalId = undefined;
         }
 
-        this.logger.info('🏥 Health Monitor arrêté', 'monitoring');
+        this.logger.info('Health Monitor arrêté', 'monitoring');
     }
 
     /**
@@ -401,10 +401,10 @@ export class HealthMonitorService {
      */
     private formatBytes(bytes: number): string {
         if (bytes === 0) return '0 B';
-        const k = 1024;
-        const sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
-        const i = Math.floor(Math.log(bytes) / Math.log(k));
-        return `${(bytes / Math.pow(k, i)).toFixed(2)} ${sizes[i]}`;
+        const BYTES_PER_UNIT = 1024;
+        const units = ['B', 'KB', 'MB', 'GB', 'TB'];
+        const unitIndex = Math.floor(Math.log(bytes) / Math.log(BYTES_PER_UNIT));
+        return `${(bytes / Math.pow(BYTES_PER_UNIT, unitIndex)).toFixed(2)} ${units[unitIndex]}`;
     }
 
     /**
@@ -452,7 +452,7 @@ export class HealthMonitorService {
      * @remarks
      * Format du log (niveau DEBUG):
      * ```
-     * 📊 Health | CPU: X% | Process RSS: X% (YMB/ZMB) | Heap: A/B | Server RAM: X% | Uptime: Xj Xh Xm Xs | Guilds: X | Users: X | Ping: Xms
+     * Health | CPU: X% | Process RSS: X% (YMB/ZMB) | Heap: A/B | Server RAM: X% | Uptime: Xj Xh Xm Xs | Guilds: X | Users: X | Ping: Xms
      * ```
      *
      * **Métriques affichées**:
@@ -484,7 +484,7 @@ export class HealthMonitorService {
         const maxMemoryBytes = this.MAX_MEMORY_MB * 1024 * 1024;
         const rssPercentage = ((rssBytes / maxMemoryBytes) * 100).toFixed(2);
 
-        let metricsLog = `📊 Health | CPU: ${cpuUsage}% | Process RSS: ${rssPercentage}% (${rssUsed}/${this.MAX_MEMORY_MB}MB) | Heap: ${heapUsed}/${heapTotal} | Server RAM: ${systemMemoryPercentage}% | Uptime: ${processUptime}`;
+        let metricsLog = `Health | CPU: ${cpuUsage}% | Process RSS: ${rssPercentage}% (${rssUsed}/${this.MAX_MEMORY_MB}MB) | Heap: ${heapUsed}/${heapTotal} | Server RAM: ${systemMemoryPercentage}% | Uptime: ${processUptime}`;
 
         if (discordMetrics) {
             metricsLog += ` | Guilds: ${discordMetrics.guilds} | Users: ${discordMetrics.users} | Ping: ${discordMetrics.websocketPing}ms`;
@@ -494,15 +494,15 @@ export class HealthMonitorService {
 
         const rssPercentageNum = (rssBytes / maxMemoryBytes) * 100;
         if (rssPercentageNum > 80) {
-            this.logger.warn(`⚠️  Mémoire processus élevée: ${rssPercentage}% (${rssUsed}/${this.MAX_MEMORY_MB}MB) - Risque de redémarrage PM2!`, 'monitoring');
+            this.logger.warn(`Mémoire processus élevée: ${rssPercentage}% (${rssUsed}/${this.MAX_MEMORY_MB}MB) - Risque de redémarrage PM2!`, 'monitoring');
         }
 
         if (systemMetrics.memory.percentage > 80) {
-            this.logger.debug(`ℹ️  Mémoire serveur élevée (mutualisé): ${systemMemoryPercentage}%`, 'monitoring');
+            this.logger.debug(`Mémoire serveur élevée (mutualisé): ${systemMemoryPercentage}%`, 'monitoring');
         }
 
         if (systemMetrics.cpu.usage > 80) {
-            this.logger.warn(`⚠️  Utilisation CPU du processus élevée: ${cpuUsage}%`, 'monitoring');
+            this.logger.warn(`Utilisation CPU du processus élevée: ${cpuUsage}%`, 'monitoring');
         }
     }
 
@@ -603,17 +603,17 @@ export class HealthMonitorService {
                     throw new Error(`HTTP ${response.status}: ${response.statusText}`);
                 }
 
-                this.logger.debug(`💓 Heartbeat envoyé avec succès (tentative ${attempt + 1}/${this.MAX_HEARTBEAT_RETRIES})`, 'heartbeat');
+                this.logger.debug(`Heartbeat envoyé avec succès (tentative ${attempt + 1}/${this.MAX_HEARTBEAT_RETRIES})`, 'heartbeat');
                 return; // Succès, on sort
 
             } catch (error: any) {
                 const isLastAttempt = attempt === this.MAX_HEARTBEAT_RETRIES - 1;
 
                 if (isLastAttempt) {
-                    this.logger.error(`❌ Heartbeat échoué après ${this.MAX_HEARTBEAT_RETRIES} tentatives`, 'heartbeat', error);
+                    this.logger.error(`Heartbeat échoué après ${this.MAX_HEARTBEAT_RETRIES} tentatives`, 'heartbeat', error);
                 } else {
                     const delay = this.HEARTBEAT_RETRY_BASE_DELAY_MS * Math.pow(2, attempt);
-                    this.logger.debug(`⚠️  Heartbeat échoué (tentative ${attempt + 1}/${this.MAX_HEARTBEAT_RETRIES}), retry dans ${delay}ms...`, 'heartbeat');
+                    this.logger.debug(`Heartbeat échoué (tentative ${attempt + 1}/${this.MAX_HEARTBEAT_RETRIES}), retry dans ${delay}ms...`, 'heartbeat');
 
                     await new Promise(resolve => setTimeout(resolve, delay));
                 }
@@ -723,11 +723,11 @@ export class HealthMonitorService {
     } | null {
         if (this.metricsHistory.length === 0) return null;
 
-        const totals = this.metricsHistory.reduce(
-            (acc, m) => ({
-                cpu: acc.cpu + m.cpu.usage,
-                memory: acc.memory + m.memory.percentage,
-                heap: acc.heap + m.memory.heapUsed,
+        const sums = this.metricsHistory.reduce(
+            (totals, metrics) => ({
+                cpu: totals.cpu + metrics.cpu.usage,
+                memory: totals.memory + metrics.memory.percentage,
+                heap: totals.heap + metrics.memory.heapUsed,
             }),
             { cpu: 0, memory: 0, heap: 0 }
         );
@@ -735,9 +735,9 @@ export class HealthMonitorService {
         const count = this.metricsHistory.length;
 
         return {
-            avgCpuUsage: totals.cpu / count,
-            avgMemoryPercentage: totals.memory / count,
-            avgHeapUsed: totals.heap / count,
+            avgCpuUsage: sums.cpu / count,
+            avgMemoryPercentage: sums.memory / count,
+            avgHeapUsed: sums.heap / count,
         };
     }
 }

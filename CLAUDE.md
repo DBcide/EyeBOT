@@ -11,7 +11,7 @@ EyeBOT is a Discord bot built with TypeScript and discord.js v14 for the Albion 
 ### Build and Run
 ```bash
 npm run build          # Compile TypeScript to dist/
-npm run dev            # Run bot directly with ts-node (development)
+npm run dev            # Run bot directly with ts-node (development) — type "exit" to stop cleanly
 npm start              # Run compiled bot from dist/
 npm run watch          # Watch mode - recompile on changes
 npm run clean          # Clean dist/ directory (Windows-specific)
@@ -20,6 +20,12 @@ npm run clean          # Clean dist/ directory (Windows-specific)
 ### Discord Commands
 ```bash
 npm run register       # Register slash commands with Discord API
+```
+
+### Tests
+```bash
+npm test                   # Run all tests
+npm run test:coverage      # Run tests with LCOV coverage report (used by SonarCloud)
 ```
 
 ### Database Migrations
@@ -40,6 +46,11 @@ The bot uses a plugin-based architecture with automatic command/event discovery:
   - Auto-discovers events from `src/features/*/events/*.ts`
   - Handles interaction routing to appropriate command handlers
 
+- **ConsoleCommands.ts**: Terminal commands while the bot runs (`exit`/`stop`/`quit`, `help`), only when
+  stdin is a TTY. Shutdown goes through `gracefulShutdown()` in index.ts, which uses
+  `shared/utils/exitGracefully.ts` (no immediate `process.exit()`: it crashes Node on Windows
+  while sockets are closing)
+
 - **BaseCommand.ts**: Abstract class for slash commands
   - All commands must extend this and implement `name`, `description`, `buildCommand()`, and `execute()`
 
@@ -53,19 +64,64 @@ Each feature is self-contained in its own directory with the structure:
 features/
   └── tracer/              # Feature name
       ├── commands/        # Slash commands for this feature
+      ├── components/      # Select menus / buttons builders (translated)
+      ├── embeds/          # Embed builders (translated), one file per command
       ├── events/          # Discord event handlers (optional)
+      ├── handlers/        # Interaction flows shared by several commands (NOT in commands/:
+      │                    #   Bot.ts loads every file there as a slash command)
+      ├── locales/         # fr.json (reference) + one JSON per supported language
       ├── models/          # TypeScript interfaces/types
       ├── services/        # Business logic
-      └── utils/           # Feature-specific utilities
+      ├── utils/           # Feature-specific utilities
+      └── translations.ts  # Typed translation catalog of the feature (e.g. `tracerTranslations`)
 ```
 
-**Current feature: tracer** - Handles Albion Online character registration and verification
+**Current features:**
+- **tracer** - Albion Online character registration and verification
+- **settings** - User preferences (`/language`)
+- **system** - Discord lifecycle events (guild join/leave, client errors)
+
+### Internationalisation (src/shared/i18n/)
+
+User-facing texts never live in code: they are in `locales/<lang>.json` files, per feature.
+Only the language chosen by each user is stored in DB (`user_preferences` table).
+
+- **locales.ts**: `LOCALES` (supported languages + matching Discord locales), `DEFAULT_LOCALE` (`fr`)
+- **TranslationCatalog.ts**: `TranslationCatalog<T>` class
+  - `forLocale(locale)` → returns a `translate(key, params)` function bound to that language
+  - `defaultText(key)` → text in the default language (slash command descriptions)
+  - `discordLocalizations(key)` → `{ 'en-US': …, 'en-GB': … }` for `setDescriptionLocalizations()`
+- **index.ts**: common catalog (`commonTranslations`, `common.*` keys) and `createFeatureTranslations()` helper
+- **LocaleService** (`services.locale`): resolves the language — `/language` preference → Discord client
+  locale (`interaction.locale`) → `DEFAULT_LOCALE`. Cached in memory, never throws.
+
+Rules:
+- Keys are type-checked: `TranslationKey<T>` is derived from the `fr.json` type, so a typo is a compile error
+- Each feature declares `const catalogs: Record<Locale, Messages> = { fr, en }`: a missing language
+  or a missing key in a JSON file is a compile error
+- Placeholders use `{name}`; a JSON array value is joined with `\n` (one line per element)
+- Logs stay in French (developer-facing), only user-facing texts are translated
+- **Naming**: the translation function is always called `translate` (never `t`); when two languages are
+  involved in the same function, name them by recipient (`translateForClicker`, `translateForTarget`)
+
+**Adding a language**: add an entry to `LOCALES`, add `<code>.json` in `shared/i18n/locales/` and in
+each feature's `locales/`, run `npm run build` (fix reported missing keys) then `npm run register`.
+
+### Embeds and components
+
+- Embeds are built by pure functions in `features/<feature>/embeds/`: `build<Name>Embed(translate, data)` → `EmbedBuilder`
+  (no DB/API access, no business logic). Inputs use view types (`CharacterView`) built by `embeds/mappers.ts`.
+- Select menus follow the same pattern in `components/`.
+- Colors come from `shared/embeds/EmbedColors.ts`; helpers (`truncateField`, `discordDate`) from `shared/embeds/EmbedUtils.ts`.
+- discord.js `EmbedBuilder` is used to build; `Embed` is the read-only class of received embeds — do not subclass either.
 
 ### Service Layer (src/shared/services/)
 
 - **ServiceContainer.ts**: Singleton container for shared services
   - Access via `ServiceContainer.getInstance()`
-  - Provides: `database` (DatabaseService), `logger` (LoggerService)
+  - Provides: `database` (DatabaseService), `logger` (LoggerService), `dbLogger` (DatabaseLoggingService),
+    `locale` (LocaleService)
+  - Features must use these shared instances (never `new DatabaseService()`: each one opens its own MySQL pool)
 
 - **DatabaseService.ts**: MySQL connection pool wrapper
   - Methods: `query()`, `select()`, `selectOne()`, `insert()`, `execute()`
@@ -73,6 +129,19 @@ features/
   - Auto-reconnection and connection pooling (max 10 connections)
 
 - **LoggerService.ts**: Centralized logging with color-coded output
+
+#### Logging conventions
+- **No emojis in log messages** (emojis are only for user-facing Discord texts in `locales/*.json`)
+- **Emojis are written as escape sequences, never raw**: `❌` / `🔒` (surrogate pair) in JSON,
+  `'\u{1F512}'` in TypeScript; keep the `️` variation selector (e.g. `⚠️`). Discord
+  `:shortcodes:` are not converted in bot messages. `tests/architecture.test.ts` fails on a raw emoji in `src/`.
+  Snapshot files (`.snap`) are generated by Jest and keep the rendered characters.
+- **Log an error once, where it is handled** — never "log then rethrow". Services
+  (TracerService, AlbionService, DatabaseService, MigrationService) throw without logging; the
+  command / handler / script that catches the error logs it. `DatabaseService.query()` attaches the
+  failing SQL to the error (`error.sql`), printed by `logger.error()`.
+- **Each event is logged by the component that performs it** (e.g. `HealthMonitorService.stop()`
+  logs "Health Monitor arrêté"): callers must not log the same step again.
 
 - **HealthMonitorService.ts**: System and bot health monitoring
   - Tracks CPU usage, memory usage, process uptime
@@ -139,10 +208,19 @@ Example structure:
 ```typescript
 export default class MyCommand extends BaseCommand {
     public name = 'mycommand';
-    public description = 'Description';
+    public description = myTranslations.defaultText('commands.mycommand.description');
 
-    public buildCommand(): SlashCommandBuilder { /* ... */ }
-    public async execute(interaction: ChatInputCommandInteraction): Promise<void> { /* ... */ }
+    public buildCommand(): SlashCommandBuilder {
+        return new SlashCommandBuilder()
+            .setName(this.name)
+            .setDescription(this.description)
+            .setDescriptionLocalizations(myTranslations.discordLocalizations('commands.mycommand.description'));
+    }
+
+    public async execute(interaction: ChatInputCommandInteraction): Promise<void> {
+        const translate = myTranslations.forLocale(await this.resolveLocale(interaction));
+        await interaction.reply({ embeds: [buildMyEmbed(translate, data)] });
+    }
 }
 ```
 
@@ -173,6 +251,10 @@ For transactions, use connection-based methods from MigrationService pattern.
 
 Manages Albion Online character verification:
 - Users can register multiple characters via `/register <pseudo>`
+- Registrations are global (not per Discord server). `/register` on a character already linked to the
+  user runs the `/update` flow instead (refresh stats + rename on the current server), via
+  `handlers/CharacterUpdateHandler`. The API → DB → nickname sequence lives in
+  `services/CharacterSyncService` (shared by /register, /update and /updateall).
 - Characters can be "claimed" by multiple users but only one can be "verified"
 - Verification requires in-game mail to "DBcide" with Discord ID
 - Verified characters are locked to that Discord account
@@ -208,6 +290,172 @@ const currentMetrics = bot['healthMonitor'].getCurrentMetrics();
 const avgMetrics = bot['healthMonitor'].getAverageMetrics();
 ```
 
+## Testing
+
+### Framework
+
+Tests use **Jest** with `ts-jest` for TypeScript support.
+
+- Config: `jest.config.js` — preset `ts-jest`, environment `node`, roots in `tests/`
+- Path alias `@/` maps to `src/` in tests
+- Coverage reports: `lcov` (for SonarCloud), `text`, `text-summary`
+
+### Structure
+
+Tests mirror the `src/` directory layout:
+
+```
+tests/
+├── features/
+│   └── tracer/
+│       ├── commands/        # RegisterCommand, UpdateAllCommand, UpdateCommand, VerifyCommand
+│       ├── embeds/          # RegisterEmbeds, UpdateEmbeds, VerifyEmbeds (snapshots)
+│       ├── handlers/        # CharacterUpdateHandler
+│       ├── services/        # AlbionService, CharacterSyncService, TracerService
+│       └── utils/           # DiscordUtils, ErrorHandlers, GuildUtils
+├── shared/
+│   ├── embeds/              # EmbedUtils
+│   ├── i18n/                # TranslationCatalog, locales, common catalog
+│   └── services/            # DatabaseService, DatabaseLoggingService, LocaleService, LoggerService
+└── setup.ts                 # Global setup: no DB lookup for the user language (defaults to fr)
+```
+
+### Conventions
+
+- Test descriptions use `[positif]` for happy paths and `[extrême]` for edge cases/errors.
+- External dependencies (Discord.js, mysql2, Albion API) are always mocked at the module level.
+- `embeds/RegisterEmbeds.test.ts` uses **Jest snapshot testing** — run `jest --updateSnapshot` to update snapshots intentionally.
+  The French snapshots must stay identical when refactoring: a diff there means a user-facing text changed.
+- Commands and services accept their dependencies as optional constructor parameters (DI for tests);
+  without parameters they use the shared `ServiceContainer` instances.
+- Messages asserted in tests are the French texts (`interaction.locale` is unset in mocks → default `fr`).
+- Mocked collectors must await async handlers and expose `stop()`; the `end` event receives a reason
+  (`'time'` triggers the timeout message, `'selected'` does not).
+- Error paths are tested, not just happy paths: a failing Discord reply (expired interaction,
+  missing permissions) must be logged once and never become an unhandled rejection.
+- To test the real `LocaleService` (mocked globally by `setup.ts`), call `jest.restoreAllMocks()` in `beforeEach`.
+- Coverage target: keep lines ≥ 99 % and branches ≥ 90 % (current: 99.4 % / 90.1 %).
+
+### Coverage Exclusions
+
+The following are excluded from coverage (thin wrappers or tightly coupled to Discord runtime):
+
+- `src/index.ts`, `src/scripts/**`
+- `src/core/Bot.ts`, `src/core/BaseCommand.ts`, `src/core/BaseEvent.ts`
+- `src/shared/services/HealthMonitorService.ts`, `src/shared/services/ServiceContainer.ts`
+- `src/database/migrations/**`, `src/database/MigrationService.ts`
+
 ## Windows Compatibility Note
 
 The project includes Windows-specific commands (e.g., `npm run clean` uses `rmdir /S /Q`). When adding new file operations in package.json scripts, ensure Windows compatibility or use cross-platform tools.
+
+### Cross-platform `package-lock.json`
+
+`package-lock.json` is generated on the **Linux production server** (not on the Windows dev machine) to ensure it includes Linux-specific optional dependencies (e.g. `@emnapi/*`). This allows `npm ci --ignore-scripts` to work identically on the CI runner and the prod server.
+
+**When adding new dependencies:** run `npm install` locally to update `package.json`, push the change, then SSH into the prod server and run `npm install --ignore-scripts` on the `fix/linux-lockfile` branch to regenerate the lock file for Linux before merging.
+
+## CI/CD Pipeline
+
+### Workflows (.github/workflows/)
+
+- **ci.yml** — Triggered on every push/PR to `main` and `develop`. Runs on GitHub-hosted `ubuntu-latest`. Steps: `npm install` + `npm run build` + `npm run test:coverage` + SonarCloud scan. Must pass before merging. Uses `npm install` instead of `npm ci` due to cross-platform lock file incompatibilities (Windows dev machine → Linux CI). Uses `fetch-depth: 0` on checkout so SonarCloud has full git history for SCM blame.
+- **release.yml** — Triggered manually via `workflow_dispatch`. Runs on the **self-hosted runner** (OVH VPS). Steps: create git tag → create GitHub Release → `git fetch + git reset --hard origin/main` → `npm ci --ignore-scripts` → `npm run build` → `npm prune --omit=dev` → `pm2 restart eyebot`.
+
+### Security: pin GitHub Actions to full commit SHA
+Never use mutable tags (`@v4`, `@v2`) for GitHub Actions dependencies — the tag can be moved to malicious code. Always pin to the full commit SHA with the version as a comment:
+```yaml
+uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4
+```
+
+### Versioning workflow (no CLI required)
+1. Update `version` in `package.json` in a PR and merge to `main`
+2. Go to GitHub → Actions → Release & Deploy → Run workflow → enter version (e.g. `1.1.0`)
+3. The workflow creates the git tag, GitHub Release, and deploys to prod automatically
+
+Version format: `MAJOR.MINOR.PATCH` — left = most impactful change.
+
+### Branch protection on `main`
+- All changes to `main` must go through a PR
+- `Build & Type Check` CI status check must pass
+- Force pushes blocked
+- The CI workflow (`ci.yml`) runs on `ubuntu-latest` (GitHub-hosted), NOT on the self-hosted runner — this avoids supply chain risks from fork PRs on a public repo
+
+### Required GitHub secrets
+- `PAT_TOKEN` — Personal Access Token with `repo` scope, used by the release workflow to push git tags to the protected `main` branch
+
+## Production Server (OVH VPS)
+
+- **OS**: Debian 12 (Trixie)
+- **Location**: `~/eyebot/`
+- **Process manager**: PM2 (`pm2 restart eyebot`, `pm2 logs eyebot`)
+- **SSH port**: 52855 (non-default, configured per OVH security guide)
+- **Database**: MariaDB, user `eyebot`, database `eyebot`
+- **GitHub Actions runner**: self-hosted, installed at `~/actions-runner/`, running as systemd service
+- **Node.js**: v22 via nvm (`~/.nvm`)
+- **Migrations**: run manually — no automated migration in CI/CD until a database backup system is in place
+
+## Code Quality Rules (SonarCloud)
+
+This project uses SonarCloud (free tier, public repo) for automatic analysis on every push/PR to `main`.
+
+### Patterns to follow
+
+**Always mark class members as `readonly` if never reassigned:**
+```typescript
+private readonly logger: LoggerService;
+private readonly services: ServiceContainer;
+```
+
+**Use optional chaining instead of double null checks:**
+```typescript
+// Wrong
+if (!error || !error.message) { ... }
+// Correct
+if (!error?.message) { ... }
+```
+
+**Avoid negated conditions with else — put positive case first:**
+```typescript
+// Wrong
+if (!response.ok) { warn(...) } else { debug(...) }
+// Correct
+if (response.ok) { debug(...) } else { warn(...) }
+```
+
+**Always handle caught exceptions — include the error in the log:**
+```typescript
+// Wrong
+} catch (dmError) {
+    this.logger.warn('Could not send DM');
+}
+// Correct
+} catch (dmError) {
+    const errorMessage = dmError instanceof Error ? dmError.message : String(dmError);
+    this.logger.warn(`Could not send DM: ${errorMessage}`);
+}
+```
+
+**Never use the `@/` path alias in `src/`** — it only exists for Jest (`tsconfig` "paths" are not rewritten by `tsc`).
+In `src/`, always use relative imports: an `@/` import compiles but crashes at runtime with
+`Cannot find module '@/...'` and Bot.ts silently skips the command. IDEs (WebStorm "optimize imports") may
+add it automatically. `tests/architecture.test.ts` fails the build if it happens.
+
+**Keep function nesting ≤ 4 levels deep** — extract callbacks into named functions.
+
+**Keep cognitive complexity ≤ 15 per function** — extract complex conditions and loops into smaller functions.
+
+**Never add redundant type assertions** on discord.js builder chains — TypeScript already infers the correct type:
+```typescript
+// Wrong
+return new SlashCommandBuilder().setName(this.name).setDescription(this.description) as SlashCommandBuilder;
+// Correct
+return new SlashCommandBuilder().setName(this.name).setDescription(this.description);
+```
+
+Note: all logger methods take `(message: string, category?: string, context?: any)` — e.g.
+`logger.warn('Could not send DM', 'tracer')`, `logger.error('Update failed', 'tracer', error)`.
+In tests, assert the category too: `expect(logger.warn).toHaveBeenCalledWith(expect.stringContaining('…'), 'tracer')`.
+
+**Redundant cast exception:** a builder that adds options (`addStringOption`…) returns
+`SlashCommandOptionsOnlyBuilder`, so `as SlashCommandBuilder` is still required there to match `BaseCommand.buildCommand()`.
