@@ -42,7 +42,7 @@ describe('RegisterEmbeds', () => {
             expect(embed.toJSON()).toMatchSnapshot();
         });
 
-        it('[snapshot] un personnage vérifié → affiche 🔒', () => {
+        it('[snapshot] un personnage vérifié → affiche \u{1F512}', () => {
             const embed = buildCharactersSummaryEmbed(translateFr, [{ ...DBCIDE, isVerified: true }]);
             expect(embed.toJSON()).toMatchSnapshot();
         });
@@ -155,7 +155,7 @@ describe('RegisterEmbeds', () => {
             const frEmbed = buildCharacterAlreadyVerifiedEmbed(translateFr, '1').toJSON();
             const enEmbed = buildCharacterAlreadyVerifiedEmbed(translateEn, '1').toJSON();
 
-            expect(enEmbed.title).toBe('❌ Character already verified');
+            expect(enEmbed.title).toBe('\u{274C} Character already verified');
             expect(enEmbed.title).not.toBe(frEmbed.title);
             expect(enEmbed.color).toBe(frEmbed.color);
         });

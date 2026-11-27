@@ -290,8 +290,8 @@ describe('VerifyCommand', () => {
             await command.execute(interaction as any);
 
             // Admin : français (pas de préférence) ; joueur vérifié : anglais
-            expect(interaction.editReply.mock.calls[0][0].embeds[0].data.title).toBe('✅ Personnage vérifié avec succès');
-            expect(interaction._mockTargetUser.send.mock.calls[0][0].embeds[0].data.title).toBe('🔒 Character verified!');
+            expect(interaction.editReply.mock.calls[0][0].embeds[0].data.title).toBe('\u{2705} Personnage vérifié avec succès');
+            expect(interaction._mockTargetUser.send.mock.calls[0][0].embeds[0].data.title).toBe('\u{1F512} Character verified!');
         });
     });
 

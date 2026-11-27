@@ -1,11 +1,11 @@
 {
   "common": {
     "errors": {
-      "command": "❌ An error occurred while running this command."
+      "command": "\u274C An error occurred while running this command."
     },
     "menu": {
-      "notForYou": "❌ This menu is not meant for you.",
-      "timeout": "⏱️ Time is up. Please run the command again."
+      "notForYou": "\u274C This menu is not meant for you.",
+      "timeout": "\u23F1\uFE0F Time is up. Please run the command again."
     }
   }
 }

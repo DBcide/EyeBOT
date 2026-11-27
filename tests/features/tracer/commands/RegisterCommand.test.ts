@@ -645,7 +645,7 @@ describe('RegisterCommand', () => {
             await command.execute(interaction as any);
 
             expect(interaction.editReply).toHaveBeenCalledWith({
-                content: '❌ No player named "DBcide" was found on Albion Online.',
+                content: '\u{274C} No player named "DBcide" was found on Albion Online.',
             });
         });
     });

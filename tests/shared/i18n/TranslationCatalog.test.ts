@@ -94,7 +94,7 @@ describe('TranslationCatalog', () => {
 
 describe('catalogues communs', () => {
     it('[positif] commonTranslations traduit les clés common.*', () => {
-        expect(commonTranslations.forLocale('en')('common.menu.timeout')).toBe('⏱️ Time is up. Please run the command again.');
+        expect(commonTranslations.forLocale('en')('common.menu.timeout')).toBe('\u{23F1}\u{FE0F} Time is up. Please run the command again.');
     });
 
     it('[positif] createFeatureTranslations donne accès aux clés de la feature et aux clés communes', () => {
@@ -102,7 +102,7 @@ describe('catalogues communs', () => {
 
         expect(feature.forLocale('en')('hello')).toBe('Hi');
         expect(feature.forLocale('es')('hello')).toBe('Hola');
-        expect(feature.forLocale('fr')('common.menu.notForYou')).toBe('❌ Ce menu ne vous est pas destiné.');
+        expect(feature.forLocale('fr')('common.menu.notForYou')).toBe('\u{274C} Ce menu ne vous est pas destiné.');
     });
 });
 

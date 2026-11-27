@@ -38,7 +38,7 @@ describe('CharacterUpdateHandler', () => {
         const reply = interaction.editReply.mock.calls[0][0];
         expect(reply.content).toBeNull();
         expect(reply.components).toEqual([]);
-        expect(reply.embeds[0].data.title).toBe('✅ Personnage mis à jour');
+        expect(reply.embeds[0].data.title).toBe('\u{2705} Personnage mis à jour');
         expect(mockLogger.success).toHaveBeenCalledWith(expect.stringContaining('DBcide'), 'tracer');
     });
 
@@ -47,7 +47,7 @@ describe('CharacterUpdateHandler', () => {
 
         await handler.updateAndReply(interaction as any, tracerTranslations.forLocale('en'), character);
 
-        expect(interaction.editReply.mock.calls[0][0].embeds[0].data.title).toBe('✅ Character updated');
+        expect(interaction.editReply.mock.calls[0][0].embeds[0].data.title).toBe('\u{2705} Character updated');
     });
 
     it('[extrême] personnage introuvable sur l\'API → message dédié, pas d\'erreur loguée', async () => {
@@ -57,7 +57,7 @@ describe('CharacterUpdateHandler', () => {
         await handler.updateAndReply(interaction as any, tracerTranslations.forLocale('fr'), character);
 
         expect(interaction.editReply).toHaveBeenCalledWith({
-            content: '❌ Impossible de récupérer les informations du personnage "DBcide" depuis l\'API Albion.',
+            content: '\u{274C} Impossible de récupérer les informations du personnage "DBcide" depuis l\'API Albion.',
             embeds: [],
             components: [],
         });

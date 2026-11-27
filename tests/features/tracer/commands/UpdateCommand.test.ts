@@ -356,7 +356,7 @@ describe('UpdateCommand', () => {
 
             expect(mockLogger.error).toHaveBeenCalledTimes(1);
             expect(interaction.editReply).toHaveBeenLastCalledWith({
-                content: '❌ Une erreur est survenue lors de la mise à jour. Réessayez plus tard.',
+                content: '\u{274C} Une erreur est survenue lors de la mise à jour. Réessayez plus tard.',
                 embeds: [],
                 components: [],
             });
@@ -380,7 +380,7 @@ describe('UpdateCommand', () => {
             await command.execute(interaction as any);
 
             const reply = interaction.editReply.mock.calls[0][0];
-            expect(reply.embeds[0].data.title).toBe('🔄 Select a character to update');
+            expect(reply.embeds[0].data.title).toBe('\u{1F504} Select a character to update');
             expect(reply.components[0].components[0].data.placeholder).toBe('Select the character to update');
         });
     });

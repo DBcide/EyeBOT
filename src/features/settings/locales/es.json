@@ -9,8 +9,8 @@
     }
   },
   "language": {
-    "updated": "✅ Idioma definido: **{language}**. A partir de ahora, el bot te responderá en este idioma.",
-    "reset": "✅ Modo automático: el bot utilizará el idioma de tu cliente de Discord (actualmente **{language}**).",
-    "error": "❌ No se ha podido guardar tu idioma. Inténtalo de nuevo más tarde."
+    "updated": "\u2705 Idioma definido: **{language}**. A partir de ahora, el bot te responderá en este idioma.",
+    "reset": "\u2705 Modo automático: el bot utilizará el idioma de tu cliente de Discord (actualmente **{language}**).",
+    "error": "\u274C No se ha podido guardar tu idioma. Inténtalo de nuevo más tarde."
   }
 }

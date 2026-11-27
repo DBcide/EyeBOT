@@ -9,13 +9,22 @@ import path from 'node:path';
  * démarrage ("Cannot find module '@/...'"), et Bot.ts ignore alors la commande concernée.
  * Les IDE (ex: WebStorm "optimize imports") peuvent en ajouter automatiquement.
  */
-function listSourceFiles(directory: string): string[] {
+function listSourceFiles(directory: string, extensions: string[] = ['.ts']): string[] {
     return fs.readdirSync(directory, { withFileTypes: true }).flatMap((entry) => {
         const fullPath = path.join(directory, entry.name);
-        if (entry.isDirectory()) return listSourceFiles(fullPath);
-        return entry.name.endsWith('.ts') ? [fullPath] : [];
+        if (entry.isDirectory()) return listSourceFiles(fullPath, extensions);
+        return extensions.some((extension) => entry.name.endsWith(extension)) ? [fullPath] : [];
     });
 }
+
+/**
+ * Émojis écrits tels quels (pictogrammes, sélecteur de variante U+FE0F, liant U+200D)
+ *
+ * Les émojis du code et des fichiers de traduction s'écrivent en séquence d'échappement
+ * (`❌` en JSON, `\u{1F512}` en TypeScript) : le caractère brut est invisible ou ambigu
+ * dans certains éditeurs/terminaux et le sélecteur de variante (U+FE0F) se perd facilement.
+ */
+const RAW_EMOJI = /[\p{Extended_Pictographic}️‍]/u;
 
 describe('architecture du code source', () => {
     const sourceRoot = path.join(__dirname, '..', 'src');
@@ -26,6 +35,18 @@ describe('architecture du code source', () => {
                 .split(/\r?\n/)
                 .map((line, index) => ({ line, lineNumber: index + 1 }))
                 .filter(({ line }) => /from\s+['"]@\//.test(line) || /require\(\s*['"]@\//.test(line))
+                .map(({ lineNumber }) => `${path.relative(sourceRoot, file)}:${lineNumber}`)
+        );
+
+        expect(offenders).toEqual([]);
+    });
+
+    it('[extrême] aucun émoji brut dans src/ (code et traductions) : utiliser la séquence d\'échappement', () => {
+        const offenders = listSourceFiles(sourceRoot, ['.ts', '.json']).flatMap((file) =>
+            fs.readFileSync(file, 'utf8')
+                .split(/\r?\n/)
+                .map((line, index) => ({ line, lineNumber: index + 1 }))
+                .filter(({ line }) => RAW_EMOJI.test(line))
                 .map(({ lineNumber }) => `${path.relative(sourceRoot, file)}:${lineNumber}`)
         );
 

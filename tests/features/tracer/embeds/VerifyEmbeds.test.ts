@@ -80,7 +80,7 @@ describe('VerifyEmbeds', () => {
         it('[positif] traduite dans la langue du destinataire', () => {
             const embed = buildVerificationNotificationEmbed(translateEn, { ...character, guild_name: null }).toJSON();
 
-            expect(embed.title).toBe('🔒 Character verified!');
+            expect(embed.title).toBe('\u{1F512} Character verified!');
             expect(embed.fields![0].value).toContain('**Guild:** None');
         });
     });

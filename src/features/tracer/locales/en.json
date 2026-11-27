@@ -25,13 +25,13 @@
     "noGuild": "No guild"
   },
   "register": {
-    "playerNotFound": "❌ No player named \"{pseudo}\" was found on Albion Online.",
-    "selectedPlayerNotFound": "❌ Error: player not found.",
-    "success": "✅ Registration successful! A public message has been posted and the verification instructions were sent to you by DM.",
-    "successWithWarning": "⚠️ Character registered with a warning. Verify it to secure it! The instructions were sent to you by DM.",
-    "error": "❌ An error occurred during registration.",
+    "playerNotFound": "\u274C No player named \"{pseudo}\" was found on Albion Online.",
+    "selectedPlayerNotFound": "\u274C Error: player not found.",
+    "success": "\u2705 Registration successful! A public message has been posted and the verification instructions were sent to you by DM.",
+    "successWithWarning": "\u26A0\uFE0F Character registered with a warning. Verify it to secure it! The instructions were sent to you by DM.",
+    "error": "\u274C An error occurred during registration.",
     "selection": {
-      "title": "🔍 Several players found",
+      "title": "\uD83D\uDD0D Several players found",
       "intro": "Several players match your search. Select the right one:",
       "line": "**{index}.** {name} - Kill Fame: {killFame}",
       "placeholder": "Select your character",
@@ -39,13 +39,13 @@
       "optionDescription": "Kill Fame: {killFame} | {guild}"
     },
     "alreadyVerified": {
-      "title": "❌ Character already verified",
+      "title": "\u274C Character already verified",
       "description": [
         "This character is already linked to and **verified** by another Discord account (<@{ownerId}>).",
         "",
-        "⚠️ A verified character cannot be linked to another Discord account."
+        "\u26A0\uFE0F A verified character cannot be linked to another Discord account."
       ],
-      "infoName": "📋 Character information",
+      "infoName": "\uD83D\uDCCB Character information",
       "infoValue": [
         "**Albion:** {name}",
         "**Kill Fame:** {killFame}",
@@ -53,7 +53,7 @@
       ]
     },
     "successEmbed": {
-      "title": "✅ New character registered",
+      "title": "\u2705 New character registered",
       "description": [
         "**Discord:** <@{discordId}>",
         "**Albion:** {name}",
@@ -63,7 +63,7 @@
       ]
     },
     "warningEmbed": {
-      "title": "⚠️ Character registered (multiple claims)",
+      "title": "\u26A0\uFE0F Character registered (multiple claims)",
       "description": [
         "**Discord:** <@{discordId}>",
         "**Albion:** {name}",
@@ -71,7 +71,7 @@
         "**Guild:** {guild}",
         "**Alliance:** {alliance}",
         "",
-        "⚠️ **Warning:** this character is also claimed by {count} other user(s):",
+        "\u26A0\uFE0F **Warning:** this character is also claimed by {count} other user(s):",
         "{claimants}",
         "",
         "Since these accounts are not verified, you can claim it too.",
@@ -79,13 +79,13 @@
       ]
     },
     "summary": {
-      "title": "📋 Characters linked to this account",
+      "title": "\uD83D\uDCCB Characters linked to this account",
       "empty": "No character registered.",
       "line": "**{index}.** {name} - {killFame} Kill Fame {verified}",
-      "footer": "Total: {count} character(s) | 🔒 = Verified"
+      "footer": "Total: {count} character(s) | \uD83D\uDD12 = Verified"
     },
     "verificationInstructions": {
-      "title": "🔒 Secure your character!",
+      "title": "\uD83D\uDD12 Secure your character!",
       "description": [
         "To **protect** your character and prevent other players from claiming it:",
         "",
@@ -94,12 +94,12 @@
         "**3.** In the mail, write your Discord ID: `{discordId}`",
         "**4.** Wait for an administrator to validate it",
         "",
-        "⚠️ **Important:** the mail must be sent by the Albion character itself!"
+        "\u26A0\uFE0F **Important:** the mail must be sent by the Albion character itself!"
       ],
       "footer": "Once verified, this character will be permanently linked to your Discord account"
     },
     "verificationWarning": {
-      "title": "🔒 How do I verify my character?",
+      "title": "\uD83D\uDD12 How do I verify my character?",
       "description": [
         "To **secure** your character and prevent other players from claiming it:",
         "",
@@ -114,23 +114,23 @@
   },
   "update": {
     "noCharacters": [
-      "❌ You have no registered Albion account.",
+      "\u274C You have no registered Albion account.",
       "Use `/register` to register your first character."
     ],
-    "error": "❌ An error occurred during the update. Please try again later.",
-    "selectedCharacterNotFound": "❌ Error: character not found.",
-    "apiUnavailable": "❌ Unable to fetch the information of character \"{name}\" from the Albion API.",
+    "error": "\u274C An error occurred during the update. Please try again later.",
+    "selectedCharacterNotFound": "\u274C Error: character not found.",
+    "apiUnavailable": "\u274C Unable to fetch the information of character \"{name}\" from the Albion API.",
     "selection": {
-      "title": "🔄 Select a character to update",
+      "title": "\uD83D\uDD04 Select a character to update",
       "intro": "You have several registered characters. Select the one to update:",
       "line": "**{index}.** {name} - {killFame} Kill Fame",
-      "renameWarning": "⚠️ **Warning:** you will be renamed on this server after the selected character.",
+      "renameWarning": "\u26A0\uFE0F **Warning:** you will be renamed on this server after the selected character.",
       "placeholder": "Select the character to update",
       "optionLabel": "{index}. {name}",
       "optionDescription": "Kill Fame: {killFame} | {guild}"
     },
     "successEmbed": {
-      "title": "✅ Character updated",
+      "title": "\u2705 Character updated",
       "description": [
         "Your information has been updated successfully!",
         "",
@@ -143,54 +143,54 @@
     }
   },
   "updateAll": {
-    "noPermission": "❌ You do not have permission to manage nicknames.",
-    "guildOnly": "❌ This command can only be used in a server.",
-    "noMembers": "📭 No member with a registered Albion account was found.",
-    "criticalError": "❌ A critical error occurred during the update. Check the logs.",
+    "noPermission": "\u274C You do not have permission to manage nicknames.",
+    "guildOnly": "\u274C This command can only be used in a server.",
+    "noMembers": "\uD83D\uDCED No member with a registered Albion account was found.",
+    "criticalError": "\u274C A critical error occurred during the update. Check the logs.",
     "progress": {
-      "title": "🔄 Update in progress...",
+      "title": "\uD83D\uDD04 Update in progress...",
       "start": [
         "**Members to update:** {total}",
         "**Progress:** 0/{total}",
         "",
-        "⏳ Processing, please wait..."
+        "\u23F3 Processing, please wait..."
       ],
       "batch": [
         "**Members to update:** {total}",
         "**Progress:** {processed}/{total}",
-        "**Succeeded:** {success} ✅",
-        "**Skipped:** {skipped} ⏭️",
-        "**Failed:** {failures} ❌",
+        "**Succeeded:** {success} \u2705",
+        "**Skipped:** {skipped} \u23ED\uFE0F",
+        "**Failed:** {failures} \u274C",
         "",
-        "⏳ Batch {batch}/{totalBatches} done..."
+        "\u23F3 Batch {batch}/{totalBatches} done..."
       ]
     },
     "summary": {
-      "title": "✅ Update complete",
+      "title": "\u2705 Update complete",
       "description": [
         "**Total members processed:** {total}",
         "",
-        "✅ **Succeeded:** {success}",
-        "⏭️ **Skipped (not found on the API):** {skipped}",
-        "❌ **Failed:** {failures}"
+        "\u2705 **Succeeded:** {success}",
+        "\u23ED\uFE0F **Skipped (not found on the API):** {skipped}",
+        "\u274C **Failed:** {failures}"
       ],
-      "failuresName": "❌ Failure details",
+      "failuresName": "\u274C Failure details",
       "moreFailures": "... and {count} more"
     }
   },
   "verify": {
-    "noPermission": "❌ You do not have permission to use this command.",
-    "noCharacters": "❌ User <@{userId}> has no registered character.",
+    "noPermission": "\u274C You do not have permission to use this command.",
+    "noCharacters": "\u274C User <@{userId}> has no registered character.",
     "characterNotLinked": [
-      "❌ Character \"{name}\" is not linked to <@{userId}>.",
+      "\u274C Character \"{name}\" is not linked to <@{userId}>.",
       "",
       "**Available characters:**",
       "{characters}"
     ],
-    "alreadyVerified": "⚠️ Character **{name}** is already verified for <@{userId}>.",
-    "error": "❌ An error occurred while verifying the character.",
+    "alreadyVerified": "\u26A0\uFE0F Character **{name}** is already verified for <@{userId}>.",
+    "error": "\u274C An error occurred while verifying the character.",
     "report": {
-      "title": "✅ Character verified successfully",
+      "title": "\u2705 Character verified successfully",
       "description": [
         "The character has been verified and secured.",
         "",
@@ -200,18 +200,18 @@
         "**Guild:** {guild}",
         "**Alliance:** {alliance}"
       ],
-      "removedClaimsName": "🗑️ Removed claims ({count})",
+      "removedClaimsName": "\uD83D\uDDD1\uFE0F Removed claims ({count})",
       "removedClaimLine": "• <@{userId}> (registered on {date})",
       "footer": "Verified by {tag}"
     },
     "notification": {
-      "title": "🔒 Character verified!",
+      "title": "\uD83D\uDD12 Character verified!",
       "description": [
         "Your character **{name}** has been verified and secured.",
         "",
         "This character is now permanently linked to your Discord account and can no longer be claimed by other players."
       ],
-      "infoName": "📋 Information",
+      "infoName": "\uD83D\uDCCB Information",
       "infoValue": [
         "**Character:** {name}",
         "**Guild:** {guild}",
@@ -221,11 +221,11 @@
   },
   "errors": {
     "albion": {
-      "unknown": "❌ An unknown error occurred.",
-      "timeout": "❌ The Albion API is taking too long to respond. Please try again in a moment.",
-      "rateLimit": "❌ Too many requests to the Albion API. Please wait a moment before trying again.",
-      "network": "❌ Unable to reach the Albion API. Check your internet connection.",
-      "generic": "❌ An error occurred while communicating with the Albion API."
+      "unknown": "\u274C An unknown error occurred.",
+      "timeout": "\u274C The Albion API is taking too long to respond. Please try again in a moment.",
+      "rateLimit": "\u274C Too many requests to the Albion API. Please wait a moment before trying again.",
+      "network": "\u274C Unable to reach the Albion API. Check your internet connection.",
+      "generic": "\u274C An error occurred while communicating with the Albion API."
     }
   }
 }

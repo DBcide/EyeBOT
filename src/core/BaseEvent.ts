@@ -153,10 +153,10 @@ export abstract class BaseEvent {
      * **Typage des arguments**:
      * Bien que la signature soit `...args: any[]`, vous devriez typer explicitement:
      * ```typescript
-     * // ✅ Bon
+     * // Bon
      * public async execute(guild: Guild): Promise<void> { ... }
      *
-     * // ❌ Éviter
+     * // À éviter
      * public async execute(...args: any[]): Promise<void> {
      *     const guild = args[0] as Guild;
      * }

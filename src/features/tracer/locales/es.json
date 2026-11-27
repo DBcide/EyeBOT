@@ -25,13 +25,13 @@
     "noGuild": "Sin gremio"
   },
   "register": {
-    "playerNotFound": "❌ No se ha encontrado ningún jugador llamado \"{pseudo}\" en Albion Online.",
-    "selectedPlayerNotFound": "❌ Error: jugador no encontrado.",
-    "success": "✅ ¡Registro completado! Se ha publicado un mensaje público y te hemos enviado las instrucciones de verificación por mensaje privado.",
-    "successWithWarning": "⚠️ Personaje registrado con una advertencia. ¡Verifícalo para protegerlo! Te hemos enviado las instrucciones por mensaje privado.",
-    "error": "❌ Se ha producido un error durante el registro.",
+    "playerNotFound": "\u274C No se ha encontrado ningún jugador llamado \"{pseudo}\" en Albion Online.",
+    "selectedPlayerNotFound": "\u274C Error: jugador no encontrado.",
+    "success": "\u2705 ¡Registro completado! Se ha publicado un mensaje público y te hemos enviado las instrucciones de verificación por mensaje privado.",
+    "successWithWarning": "\u26A0\uFE0F Personaje registrado con una advertencia. ¡Verifícalo para protegerlo! Te hemos enviado las instrucciones por mensaje privado.",
+    "error": "\u274C Se ha producido un error durante el registro.",
     "selection": {
-      "title": "🔍 Se han encontrado varios jugadores",
+      "title": "\uD83D\uDD0D Se han encontrado varios jugadores",
       "intro": "Varios jugadores coinciden con tu búsqueda. Selecciona el correcto:",
       "line": "**{index}.** {name} - Kill Fame: {killFame}",
       "placeholder": "Selecciona tu personaje",
@@ -39,13 +39,13 @@
       "optionDescription": "Kill Fame: {killFame} | {guild}"
     },
     "alreadyVerified": {
-      "title": "❌ Personaje ya verificado",
+      "title": "\u274C Personaje ya verificado",
       "description": [
         "Este personaje ya está vinculado y **verificado** por otra cuenta de Discord (<@{ownerId}>).",
         "",
-        "⚠️ Un personaje verificado no puede vincularse a otra cuenta de Discord."
+        "\u26A0\uFE0F Un personaje verificado no puede vincularse a otra cuenta de Discord."
       ],
-      "infoName": "📋 Información del personaje",
+      "infoName": "\uD83D\uDCCB Información del personaje",
       "infoValue": [
         "**Albion:** {name}",
         "**Kill Fame:** {killFame}",
@@ -53,7 +53,7 @@
       ]
     },
     "successEmbed": {
-      "title": "✅ Nuevo personaje registrado",
+      "title": "\u2705 Nuevo personaje registrado",
       "description": [
         "**Discord:** <@{discordId}>",
         "**Albion:** {name}",
@@ -63,7 +63,7 @@
       ]
     },
     "warningEmbed": {
-      "title": "⚠️ Personaje registrado (reclamaciones múltiples)",
+      "title": "\u26A0\uFE0F Personaje registrado (reclamaciones múltiples)",
       "description": [
         "**Discord:** <@{discordId}>",
         "**Albion:** {name}",
@@ -71,7 +71,7 @@
         "**Gremio:** {guild}",
         "**Alianza:** {alliance}",
         "",
-        "⚠️ **Atención:** este personaje también lo reclaman {count} usuario(s) más:",
+        "\u26A0\uFE0F **Atención:** este personaje también lo reclaman {count} usuario(s) más:",
         "{claimants}",
         "",
         "Como estas cuentas no están verificadas, tú también puedes reclamarlo.",
@@ -79,13 +79,13 @@
       ]
     },
     "summary": {
-      "title": "📋 Personajes vinculados a esta cuenta",
+      "title": "\uD83D\uDCCB Personajes vinculados a esta cuenta",
       "empty": "No hay ningún personaje registrado.",
       "line": "**{index}.** {name} - {killFame} Kill Fame {verified}",
-      "footer": "Total: {count} personaje(s) | 🔒 = Verificado"
+      "footer": "Total: {count} personaje(s) | \uD83D\uDD12 = Verificado"
     },
     "verificationInstructions": {
-      "title": "🔒 ¡Protege tu personaje!",
+      "title": "\uD83D\uDD12 ¡Protege tu personaje!",
       "description": [
         "Para **proteger** tu personaje e impedir que otros jugadores lo reclamen:",
         "",
@@ -94,12 +94,12 @@
         "**3.** En el correo, indica tu ID de Discord: `{discordId}`",
         "**4.** Espera a que un administrador lo valide",
         "",
-        "⚠️ **Importante:** ¡el correo debe enviarlo el propio personaje de Albion!"
+        "\u26A0\uFE0F **Importante:** ¡el correo debe enviarlo el propio personaje de Albion!"
       ],
       "footer": "Una vez verificado, este personaje quedará vinculado de forma definitiva a tu cuenta de Discord"
     },
     "verificationWarning": {
-      "title": "🔒 ¿Cómo verificar tu personaje?",
+      "title": "\uD83D\uDD12 ¿Cómo verificar tu personaje?",
       "description": [
         "Para **proteger** tu personaje e impedir que otros jugadores lo reclamen:",
         "",
@@ -114,23 +114,23 @@
   },
   "update": {
     "noCharacters": [
-      "❌ No tienes ninguna cuenta de Albion registrada.",
+      "\u274C No tienes ninguna cuenta de Albion registrada.",
       "Usa `/register` para registrar tu primer personaje."
     ],
-    "error": "❌ Se ha producido un error durante la actualización. Inténtalo de nuevo más tarde.",
-    "selectedCharacterNotFound": "❌ Error: personaje no encontrado.",
-    "apiUnavailable": "❌ No se ha podido obtener la información del personaje \"{name}\" desde la API de Albion.",
+    "error": "\u274C Se ha producido un error durante la actualización. Inténtalo de nuevo más tarde.",
+    "selectedCharacterNotFound": "\u274C Error: personaje no encontrado.",
+    "apiUnavailable": "\u274C No se ha podido obtener la información del personaje \"{name}\" desde la API de Albion.",
     "selection": {
-      "title": "🔄 Selecciona un personaje para actualizar",
+      "title": "\uD83D\uDD04 Selecciona un personaje para actualizar",
       "intro": "Tienes varios personajes registrados. Selecciona el que quieres actualizar:",
       "line": "**{index}.** {name} - {killFame} Kill Fame",
-      "renameWarning": "⚠️ **Atención:** se cambiará tu apodo en este servidor por el del personaje seleccionado.",
+      "renameWarning": "\u26A0\uFE0F **Atención:** se cambiará tu apodo en este servidor por el del personaje seleccionado.",
       "placeholder": "Selecciona el personaje que quieres actualizar",
       "optionLabel": "{index}. {name}",
       "optionDescription": "Kill Fame: {killFame} | {guild}"
     },
     "successEmbed": {
-      "title": "✅ Personaje actualizado",
+      "title": "\u2705 Personaje actualizado",
       "description": [
         "¡Tu información se ha actualizado correctamente!",
         "",
@@ -143,54 +143,54 @@
     }
   },
   "updateAll": {
-    "noPermission": "❌ No tienes permiso para gestionar los apodos.",
-    "guildOnly": "❌ Este comando solo puede usarse en un servidor.",
-    "noMembers": "📭 No se ha encontrado ningún miembro con una cuenta de Albion registrada.",
-    "criticalError": "❌ Se ha producido un error crítico durante la actualización. Consulta los logs.",
+    "noPermission": "\u274C No tienes permiso para gestionar los apodos.",
+    "guildOnly": "\u274C Este comando solo puede usarse en un servidor.",
+    "noMembers": "\uD83D\uDCED No se ha encontrado ningún miembro con una cuenta de Albion registrada.",
+    "criticalError": "\u274C Se ha producido un error crítico durante la actualización. Consulta los logs.",
     "progress": {
-      "title": "🔄 Actualización en curso...",
+      "title": "\uD83D\uDD04 Actualización en curso...",
       "start": [
         "**Miembros por actualizar:** {total}",
         "**Progreso:** 0/{total}",
         "",
-        "⏳ Procesando, espera por favor..."
+        "\u23F3 Procesando, espera por favor..."
       ],
       "batch": [
         "**Miembros por actualizar:** {total}",
         "**Progreso:** {processed}/{total}",
-        "**Correctos:** {success} ✅",
-        "**Omitidos:** {skipped} ⏭️",
-        "**Fallidos:** {failures} ❌",
+        "**Correctos:** {success} \u2705",
+        "**Omitidos:** {skipped} \u23ED\uFE0F",
+        "**Fallidos:** {failures} \u274C",
         "",
-        "⏳ Lote {batch}/{totalBatches} terminado..."
+        "\u23F3 Lote {batch}/{totalBatches} terminado..."
       ]
     },
     "summary": {
-      "title": "✅ Actualización terminada",
+      "title": "\u2705 Actualización terminada",
       "description": [
         "**Total de miembros procesados:** {total}",
         "",
-        "✅ **Correctos:** {success}",
-        "⏭️ **Omitidos (no encontrados en la API):** {skipped}",
-        "❌ **Fallidos:** {failures}"
+        "\u2705 **Correctos:** {success}",
+        "\u23ED\uFE0F **Omitidos (no encontrados en la API):** {skipped}",
+        "\u274C **Fallidos:** {failures}"
       ],
-      "failuresName": "❌ Detalle de los fallos",
+      "failuresName": "\u274C Detalle de los fallos",
       "moreFailures": "... y {count} más"
     }
   },
   "verify": {
-    "noPermission": "❌ No tienes permiso para usar este comando.",
-    "noCharacters": "❌ El usuario <@{userId}> no tiene ningún personaje registrado.",
+    "noPermission": "\u274C No tienes permiso para usar este comando.",
+    "noCharacters": "\u274C El usuario <@{userId}> no tiene ningún personaje registrado.",
     "characterNotLinked": [
-      "❌ El personaje \"{name}\" no está vinculado a <@{userId}>.",
+      "\u274C El personaje \"{name}\" no está vinculado a <@{userId}>.",
       "",
       "**Personajes disponibles:**",
       "{characters}"
     ],
-    "alreadyVerified": "⚠️ El personaje **{name}** ya está verificado para <@{userId}>.",
-    "error": "❌ Se ha producido un error al verificar el personaje.",
+    "alreadyVerified": "\u26A0\uFE0F El personaje **{name}** ya está verificado para <@{userId}>.",
+    "error": "\u274C Se ha producido un error al verificar el personaje.",
     "report": {
-      "title": "✅ Personaje verificado correctamente",
+      "title": "\u2705 Personaje verificado correctamente",
       "description": [
         "El personaje ha sido verificado y protegido.",
         "",
@@ -200,18 +200,18 @@
         "**Gremio:** {guild}",
         "**Alianza:** {alliance}"
       ],
-      "removedClaimsName": "🗑️ Reclamaciones eliminadas ({count})",
+      "removedClaimsName": "\uD83D\uDDD1\uFE0F Reclamaciones eliminadas ({count})",
       "removedClaimLine": "• <@{userId}> (registrado el {date})",
       "footer": "Verificado por {tag}"
     },
     "notification": {
-      "title": "🔒 ¡Personaje verificado!",
+      "title": "\uD83D\uDD12 ¡Personaje verificado!",
       "description": [
         "Tu personaje **{name}** ha sido verificado y protegido.",
         "",
         "Este personaje queda vinculado de forma definitiva a tu cuenta de Discord y ningún otro jugador podrá reclamarlo."
       ],
-      "infoName": "📋 Información",
+      "infoName": "\uD83D\uDCCB Información",
       "infoValue": [
         "**Personaje:** {name}",
         "**Gremio:** {guild}",
@@ -221,11 +221,11 @@
   },
   "errors": {
     "albion": {
-      "unknown": "❌ Se ha producido un error desconocido.",
-      "timeout": "❌ La API de Albion tarda demasiado en responder. Inténtalo de nuevo en unos instantes.",
-      "rateLimit": "❌ Demasiadas solicitudes a la API de Albion. Espera unos instantes antes de volver a intentarlo.",
-      "network": "❌ No se ha podido contactar con la API de Albion. Comprueba tu conexión a internet.",
-      "generic": "❌ Se ha producido un error al comunicarse con la API de Albion."
+      "unknown": "\u274C Se ha producido un error desconocido.",
+      "timeout": "\u274C La API de Albion tarda demasiado en responder. Inténtalo de nuevo en unos instantes.",
+      "rateLimit": "\u274C Demasiadas solicitudes a la API de Albion. Espera unos instantes antes de volver a intentarlo.",
+      "network": "\u274C No se ha podido contactar con la API de Albion. Comprueba tu conexión a internet.",
+      "generic": "\u274C Se ha producido un error al comunicarse con la API de Albion."
     }
   }
 }

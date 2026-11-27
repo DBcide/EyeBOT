@@ -330,7 +330,37 @@ Translate **only the values**, never the keys. Rules to keep the bot working:
 | **Discord mentions and markdown** | `<@{discordId}>`, `**bold**`, `` `code` `` |
 | **Command names** (they are not translated) | `/register`, `/update` |
 | **Arrays** (one item = one line of the embed); empty strings `""` are blank lines | `"description": ["Line 1", "", "Line 3"]` |
-| The **emoji** at the start of messages | `❌`, `✅`, `⚠️` |
+| The **emoji escape sequences** at the start of messages (see below) | `❌`, `✅`, `⚠️` |
+
+#### Emojis
+
+Emojis are **never written as raw characters** in the code or in `locales/*.json`: they are written as Unicode escape sequences. Discord receives exactly the same character (JSON and TypeScript decode the sequence), but the source stays readable in any editor or terminal, and the invisible variation selector `U+FE0F` (the "emoji style" of `⚠️`) cannot get lost. `npm test` fails if a raw emoji is added to `src/` (`tests/architecture.test.ts`).
+
+Discord's `:shortcodes:` (e.g. `:x:`) are **not** an alternative: only the Discord client converts them when a user types them, so a bot message shows the literal text `:x:`.
+
+- **In JSON**, the only syntax is `\uXXXX`. An emoji above `U+FFFF` is written as two codes (a UTF-16 surrogate pair).
+- **In TypeScript**, use `\u{XXXXX}` (e.g. `'\u{1F512}'`).
+
+| Emoji | Meaning in EyeBOT | JSON | TypeScript |
+|-------|-------------------|------|------------|
+| ✅ | Success | `✅` | `\u{2705}` |
+| ❌ | Error | `❌` | `\u{274C}` |
+| ⚠️ | Warning | `⚠️` | `\u{26A0}\u{FE0F}` |
+| 🔒 | Verified character | `🔒` | `\u{1F512}` |
+| 🔍 | Several players found | `🔍` | `\u{1F50D}` |
+| 📋 | Information / character list | `📋` | `\u{1F4CB}` |
+| 🔄 | Update | `🔄` | `\u{1F504}` |
+| 📭 | Nothing found | `📭` | `\u{1F4ED}` |
+| ⏳ | In progress | `⏳` | `\u{23F3}` |
+| ⏭️ | Skipped | `⏭️` | `\u{23ED}\u{FE0F}` |
+| ⏱️ | Timeout | `⏱️` | `\u{23F1}\u{FE0F}` |
+| 🗑️ | Removed claims | `🗑️` | `\u{1F5D1}\u{FE0F}` |
+
+To get the JSON code of another emoji, paste it in this command (here 🎉, which prints `🎉`), or look it up on [Emojipedia](https://emojipedia.org/) ("Codepoints"):
+
+```bash
+node -p "[...'🎉'].map(c => [...Array(c.length).keys()].map(i => '\\u' + c.charCodeAt(i).toString(16).toUpperCase().padStart(4, '0')).join('')).join('')"
+```
 
 Discord limits to respect (a longer text makes Discord reject the command or the message):
 

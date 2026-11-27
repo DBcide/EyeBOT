@@ -138,7 +138,7 @@ export function buildCharactersSummaryEmbed(
                 index: index + 1,
                 name: character.name,
                 killFame: formatFame(character.killFame),
-                verified: character.isVerified ? '🔒' : '',
+                verified: character.isVerified ? '\u{1F512}' : '',
             }))
             .join('\n')
         : translate('register.summary.empty');
