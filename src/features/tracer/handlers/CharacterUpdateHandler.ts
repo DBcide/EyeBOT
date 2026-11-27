@@ -21,8 +21,17 @@ import { buildCharacterUpdatedEmbed, fromAlbionPlayer } from '../embeds';
  *   un simple message "déjà enregistré"
  */
 export class CharacterUpdateHandler {
-    private readonly syncService = new CharacterSyncService();
-    private readonly logger: LoggerService = ServiceContainer.getInstance().logger;
+    private readonly syncService: CharacterSyncService;
+    private readonly logger: LoggerService;
+
+    /**
+     * @param syncService - Synchronisation des personnages (injection pour les tests)
+     * @param logger - Logger (injection pour les tests)
+     */
+    constructor(syncService?: CharacterSyncService, logger?: LoggerService) {
+        this.logger = logger ?? ServiceContainer.getInstance().logger;
+        this.syncService = syncService ?? new CharacterSyncService(undefined, undefined, this.logger);
+    }
 
     /**
      * Rafraîchit le personnage (API → DB → pseudo) et affiche le résultat

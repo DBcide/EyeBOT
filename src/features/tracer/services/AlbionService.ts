@@ -37,8 +37,8 @@ export class AlbionService {
      * Utilise le LoggerService partagé du ServiceContainer (logs également persistés en base).
      * Le service est stateless et peut être instancié plusieurs fois.
      */
-    constructor() {
-        this.logger = ServiceContainer.getInstance().logger;
+    constructor(logger?: LoggerService) {
+        this.logger = logger ?? ServiceContainer.getInstance().logger;
     }
 
     /**

@@ -74,6 +74,7 @@ function createMockInteraction({
     hasGuild = true,
     members = new Map<string, any>(),
 } = {}) {
+    const progressMessage = { edit: jest.fn().mockResolvedValue(undefined) };
     return {
         user: { id: 'admin-001', tag: 'Admin#0001' },
         guild: hasGuild
@@ -89,7 +90,17 @@ function createMockInteraction({
         reply: jest.fn().mockResolvedValue(undefined),
         deferReply: jest.fn().mockResolvedValue(undefined),
         editReply: jest.fn().mockResolvedValue(undefined),
+        // La progression et le résumé passent par message.edit() (token bot, pas de limite
+        // de 15 min) sur le message récupéré via fetchReply()
+        fetchReply: jest.fn().mockResolvedValue(progressMessage),
+        _progressMessage: progressMessage,
     };
+}
+
+/** Dernier contenu affiché dans le message de progression (= résumé final) */
+function lastProgressEdit(interaction: ReturnType<typeof createMockInteraction>) {
+    const calls = interaction._progressMessage.edit.mock.calls;
+    return calls[calls.length - 1][0];
 }
 
 // ─── Tests ────────────────────────────────────────────────────────────────────
@@ -263,11 +274,10 @@ describe('UpdateAllCommand', () => {
             await command.execute(interaction as any);
 
             expect(mockTracerService.updateUserFromApi).not.toHaveBeenCalled();
-            expect(mockLogger.warn).toHaveBeenCalledWith(expect.stringContaining('DBcide'));
+            expect(mockLogger.warn).toHaveBeenCalledWith(expect.stringContaining('DBcide'), 'tracer');
 
             // Le résumé final doit mentionner 1 ignoré
-            const calls = (interaction.editReply as jest.Mock).mock.calls;
-            const lastCall = calls[calls.length - 1][0];
+            const lastCall = lastProgressEdit(interaction);
             expect(lastCall.embeds[0].data.description).toContain('1');
         });
 
@@ -284,8 +294,7 @@ describe('UpdateAllCommand', () => {
             expect(mockLogger.error).toHaveBeenCalledTimes(1);
 
             // Le résumé final doit avoir un champ "Détails des échecs"
-            const calls = (interaction.editReply as jest.Mock).mock.calls;
-            const lastCall = calls[calls.length - 1][0];
+            const lastCall = lastProgressEdit(interaction);
             const fields = lastCall.embeds[0].data.fields;
             expect(fields).toBeDefined();
             expect(fields[0].name).toContain('Détails des échecs');
@@ -304,8 +313,7 @@ describe('UpdateAllCommand', () => {
 
             await command.execute(interaction as any);
 
-            const calls = (interaction.editReply as jest.Mock).mock.calls;
-            const lastCall = calls[calls.length - 1][0];
+            const lastCall = lastProgressEdit(interaction);
             expect(lastCall.embeds[0].data.color).toBe(0x51CF66);
         });
 
@@ -319,8 +327,7 @@ describe('UpdateAllCommand', () => {
 
             await command.execute(interaction as any);
 
-            const calls = (interaction.editReply as jest.Mock).mock.calls;
-            const lastCall = calls[calls.length - 1][0];
+            const lastCall = lastProgressEdit(interaction);
             expect(lastCall.embeds[0].data.color).toBe(0xF39C12);
         });
 
@@ -340,8 +347,7 @@ describe('UpdateAllCommand', () => {
 
             await command.execute(interaction as any);
 
-            const calls = (interaction.editReply as jest.Mock).mock.calls;
-            const lastCall = calls[calls.length - 1][0];
+            const lastCall = lastProgressEdit(interaction);
             const errorField = lastCall.embeds[0].data.fields[0];
             // Les détails doivent mentionner "et X autres"
             expect(errorField.value).toContain('autres');

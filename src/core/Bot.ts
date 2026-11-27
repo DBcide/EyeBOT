@@ -12,14 +12,9 @@ import { BaseEvent } from './BaseEvent';
 import { LoggerService } from '../shared/services/LoggerService';
 import { ServiceContainer } from '../shared/services/ServiceContainer';
 import { HealthMonitorService } from '../shared/services/HealthMonitorService';
-<<<<<<< HEAD
 import { commonI18n } from '../shared/i18n';
-import fs from 'fs';
-import path from 'path';
-=======
 import fs from 'node:fs';
 import path from 'node:path';
->>>>>>> fc702880329b712be25dc0220687c57c247aaf1a
 
 /**
  * Classe principale du bot qui gère l'initialisation et l'orchestration
@@ -241,6 +236,9 @@ export class Bot {
 
             return users[0].albion_id;
         } catch (error) {
+            // Non bloquant : le log de commande sera simplement enregistré sans personnage
+            const errorMessage = error instanceof Error ? error.message : String(error);
+            this.logger.debug(`Personnage principal introuvable pour ${discordId}: ${errorMessage}`, 'discord');
             return null;
         }
     }

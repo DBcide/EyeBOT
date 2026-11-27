@@ -13,6 +13,8 @@ import { tracerI18n, TracerTranslator } from '../i18n';
 import { buildCharacterSelectMenu } from '../components/SelectMenus';
 import { buildCharacterSelectionEmbed, fromTracerUser } from '../embeds';
 import { CharacterUpdateHandler } from '../handlers/CharacterUpdateHandler';
+import { CharacterSyncService } from '../services/CharacterSyncService';
+import { AlbionService } from '../services/AlbionService';
 
 /**
  * Commande /update pour rafraîchir les informations d'un personnage Albion depuis l'API
@@ -36,11 +38,19 @@ export default class UpdateCommand extends BaseCommand {
     private readonly updateHandler: CharacterUpdateHandler;
     private readonly logger: LoggerService;
 
-    constructor() {
+    /**
+     * @param albionService - Client API Albion (injection pour les tests)
+     * @param tracerService - Accès aux personnages en base (injection pour les tests)
+     * @param logger - Logger (injection pour les tests)
+     */
+    constructor(albionService?: AlbionService, tracerService?: TracerService, logger?: LoggerService) {
         super();
-        this.logger = ServiceContainer.getInstance().logger;
-        this.tracerService = new TracerService();
-        this.updateHandler = new CharacterUpdateHandler();
+        this.logger = logger ?? ServiceContainer.getInstance().logger;
+        this.tracerService = tracerService ?? new TracerService(undefined, this.logger);
+        this.updateHandler = new CharacterUpdateHandler(
+            new CharacterSyncService(albionService, this.tracerService, this.logger),
+            this.logger
+        );
     }
 
     /**
@@ -50,7 +60,7 @@ export default class UpdateCommand extends BaseCommand {
         return new SlashCommandBuilder()
             .setName(this.name)
             .setDescription(this.description)
-            .setDescriptionLocalizations(tracerI18n.localizations('commands.update.description')) as SlashCommandBuilder;
+            .setDescriptionLocalizations(tracerI18n.localizations('commands.update.description'));
     }
 
     /**

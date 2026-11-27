@@ -254,7 +254,7 @@ describe('VerifyCommand', () => {
 
             await command.execute(interaction as any);
 
-            expect(mockLogger.warn).toHaveBeenCalledWith(expect.stringContaining(TARGET_USER_ID));
+            expect(mockLogger.warn).toHaveBeenCalledWith(expect.stringContaining(TARGET_USER_ID), 'tracer');
             // La commande s'est quand même terminée avec succès
             expect(interaction.editReply).toHaveBeenCalledWith(
                 expect.objectContaining({ embeds: expect.any(Array) })

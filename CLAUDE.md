@@ -300,17 +300,25 @@ tests/
 ├── features/
 │   └── tracer/
 │       ├── commands/        # RegisterCommand, UpdateAllCommand, UpdateCommand, VerifyCommand
+│       ├── embeds/          # RegisterEmbeds (snapshots fr + en)
 │       ├── services/        # AlbionService, TracerService
-│       └── utils/           # DiscordUtils, EmbedBuilders (snapshots), ErrorHandlers, GuildUtils
-└── shared/
-    └── services/            # DatabaseService, LoggerService
+│       └── utils/           # DiscordUtils, ErrorHandlers, GuildUtils
+├── shared/
+│   └── services/            # DatabaseService, LoggerService
+└── setup.ts                 # Global setup: no DB lookup for the user language (defaults to fr)
 ```
 
 ### Conventions
 
 - Test descriptions use `[positif]` for happy paths and `[extrême]` for edge cases/errors.
 - External dependencies (Discord.js, mysql2, Albion API) are always mocked at the module level.
-- `EmbedBuilders.test.ts` uses **Jest snapshot testing** — run `jest --updateSnapshot` to update snapshots intentionally.
+- `embeds/RegisterEmbeds.test.ts` uses **Jest snapshot testing** — run `jest --updateSnapshot` to update snapshots intentionally.
+  The French snapshots must stay identical when refactoring: a diff there means a user-facing text changed.
+- Commands and services accept their dependencies as optional constructor parameters (DI for tests);
+  without parameters they use the shared `ServiceContainer` instances.
+- Messages asserted in tests are the French texts (`interaction.locale` is unset in mocks → default `fr`).
+- Mocked collectors must await async handlers and expose `stop()`; the `end` event receives a reason
+  (`'time'` triggers the timeout message, `'selected'` does not).
 
 ### Coverage Exclusions
 
@@ -424,4 +432,9 @@ return new SlashCommandBuilder().setName(this.name).setDescription(this.descript
 return new SlashCommandBuilder().setName(this.name).setDescription(this.description);
 ```
 
-Note: `logger.warn()` only accepts a single `string` parameter. `logger.error()` accepts `(message: string, error?: any)`.
+Note: all logger methods take `(message: string, category?: string, context?: any)` — e.g.
+`logger.warn('Could not send DM', 'tracer')`, `logger.error('Update failed', 'tracer', error)`.
+In tests, assert the category too: `expect(logger.warn).toHaveBeenCalledWith(expect.stringContaining('…'), 'tracer')`.
+
+**Redundant cast exception:** a builder that adds options (`addStringOption`…) returns
+`SlashCommandOptionsOnlyBuilder`, so `as SlashCommandBuilder` is still required there to match `BaseCommand.buildCommand()`.

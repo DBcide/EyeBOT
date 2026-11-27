@@ -68,7 +68,7 @@ const mockTracerUser: TracerUser = {
 
 describe('TracerService', () => {
     let service: TracerService;
-    let mockDb: jest.Mocked<Pick<DatabaseService, 'select' | 'selectOne' | 'insert' | 'execute'>>;
+    let mockDb: jest.Mocked<Pick<DatabaseService, 'select' | 'selectOne' | 'insert' | 'execute' | 'beginTransaction' | 'commit' | 'rollback'>>;
     let mockLogger: jest.Mocked<LoggerService>;
 
     beforeEach(() => {
@@ -77,6 +77,9 @@ describe('TracerService', () => {
             selectOne: jest.fn(),
             insert: jest.fn(),
             execute: jest.fn(),
+            beginTransaction: jest.fn(),
+            commit: jest.fn(),
+            rollback: jest.fn(),
         };
 
         mockLogger = {
@@ -499,12 +502,21 @@ describe('TracerService', () => {
     // ─── verifyCharacter() ────────────────────────────────────────────────────
 
     describe('verifyCharacter()', () => {
-        it('[positif] supprime d\'abord les autres revendications (DELETE)', async () => {
-            mockDb.execute.mockResolvedValue(1);
+        // verifyCharacter s'exécute dans une transaction : les requêtes passent par la
+        // connexion dédiée (connection.execute), puis commit (ou rollback en cas d'erreur)
+        let connection: { execute: jest.Mock };
 
+        beforeEach(() => {
+            connection = { execute: jest.fn().mockResolvedValue([{ affectedRows: 1 }]) };
+            mockDb.beginTransaction.mockResolvedValue(connection as any);
+            mockDb.commit.mockResolvedValue(undefined);
+            mockDb.rollback.mockResolvedValue(undefined);
+        });
+
+        it('[positif] supprime d\'abord les autres revendications (DELETE)', async () => {
             await service.verifyCharacter('discord-123', 'player-abc');
 
-            expect(mockDb.execute).toHaveBeenNthCalledWith(
+            expect(connection.execute).toHaveBeenNthCalledWith(
                 1,
                 expect.stringContaining('DELETE FROM tracer_users'),
                 ['player-abc', 'discord-123']
@@ -512,29 +524,58 @@ describe('TracerService', () => {
         });
 
         it('[positif] marque ensuite le personnage comme vérifié (UPDATE is_verified = 1)', async () => {
-            mockDb.execute.mockResolvedValue(1);
-
             await service.verifyCharacter('discord-123', 'player-abc');
 
-            expect(mockDb.execute).toHaveBeenNthCalledWith(
+            expect(connection.execute).toHaveBeenNthCalledWith(
                 2,
                 expect.stringContaining('is_verified = 1'),
                 ['player-abc', 'discord-123']
             );
         });
 
-        it('[positif] appelle db.execute exactement deux fois dans le bon ordre', async () => {
-            mockDb.execute.mockResolvedValue(1);
-
+        it('[positif] exécute les deux requêtes puis valide la transaction', async () => {
             await service.verifyCharacter('discord-123', 'player-abc');
 
-            expect(mockDb.execute).toHaveBeenCalledTimes(2);
+            expect(connection.execute).toHaveBeenCalledTimes(2);
+            expect(mockDb.commit).toHaveBeenCalledWith(connection);
+            expect(mockDb.rollback).not.toHaveBeenCalled();
         });
 
-        it('[extrême] propage l\'erreur si db.execute lance une exception', async () => {
-            mockDb.execute.mockRejectedValue(new Error('DB down'));
+        it('[extrême] annule la transaction et propage l\'erreur si une requête échoue', async () => {
+            connection.execute
+                .mockResolvedValueOnce([{ affectedRows: 1 }])     // DELETE OK
+                .mockRejectedValueOnce(new Error('DB down'));     // UPDATE en échec
 
             await expect(service.verifyCharacter('discord-123', 'player-abc')).rejects.toThrow('DB down');
+
+            expect(mockDb.rollback).toHaveBeenCalledWith(connection);
+            expect(mockDb.commit).not.toHaveBeenCalled();
+        });
+
+        it('[extrême] propage l\'erreur si la transaction ne peut pas démarrer', async () => {
+            mockDb.beginTransaction.mockRejectedValue(new Error('Pool saturé'));
+
+            await expect(service.verifyCharacter('discord-123', 'player-abc')).rejects.toThrow('Pool saturé');
+            expect(connection.execute).not.toHaveBeenCalled();
+        });
+    });
+
+    // ─── getAllUsers() ────────────────────────────────────────────────────────
+
+    describe('getAllUsers()', () => {
+        it('[positif] retourne tous les personnages triés par discord_id puis personnage principal', async () => {
+            mockDb.select.mockResolvedValue([mockTracerUser]);
+
+            const result = await service.getAllUsers();
+
+            expect(result).toEqual([mockTracerUser]);
+            expect(mockDb.select).toHaveBeenCalledWith(expect.stringContaining('ORDER BY discord_id, is_main DESC'));
+        });
+
+        it('[extrême] propage l\'erreur si db.select lance une exception', async () => {
+            mockDb.select.mockRejectedValue(new Error('DB down'));
+
+            await expect(service.getAllUsers()).rejects.toThrow('DB down');
         });
     });
 

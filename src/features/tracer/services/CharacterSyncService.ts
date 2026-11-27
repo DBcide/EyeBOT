@@ -19,9 +19,20 @@ import { updateMemberNickname } from '../utils/DiscordUtils';
  * Aucune réponse Discord ici : c'est le rôle des commandes / handlers.
  */
 export class CharacterSyncService {
-    private readonly albionService = new AlbionService();
-    private readonly tracerService = new TracerService();
-    private readonly logger: LoggerService = ServiceContainer.getInstance().logger;
+    private readonly albionService: AlbionService;
+    private readonly tracerService: TracerService;
+    private readonly logger: LoggerService;
+
+    /**
+     * @param albionService - Client API Albion (injection pour les tests)
+     * @param tracerService - Accès aux personnages en base (injection pour les tests)
+     * @param logger - Logger (injection pour les tests)
+     */
+    constructor(albionService?: AlbionService, tracerService?: TracerService, logger?: LoggerService) {
+        this.logger = logger ?? ServiceContainer.getInstance().logger;
+        this.albionService = albionService ?? new AlbionService(this.logger);
+        this.tracerService = tracerService ?? new TracerService(undefined, this.logger);
+    }
 
     /**
      * Rafraîchit un personnage et renomme son propriétaire sur le serveur

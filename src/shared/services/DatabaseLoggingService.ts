@@ -88,8 +88,8 @@ export interface EventLogData {
  * @see MIGRATIONS.md - Migrations 4, 5, 6 pour les schémas de tables
  */
 export class DatabaseLoggingService {
-    private database: DatabaseService;
-    private logger: LoggerService;
+    private readonly database: DatabaseService;
+    private readonly logger: LoggerService;
 
     /**
      * Crée une instance du service de logging en base de données

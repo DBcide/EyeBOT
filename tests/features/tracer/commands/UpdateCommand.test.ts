@@ -3,7 +3,7 @@ import { AlbionService } from '@/features/tracer/services/AlbionService';
 import { TracerService } from '@/features/tracer/services/TracerService';
 import { LoggerService } from '@/shared/services/LoggerService';
 import { TracerUser, AlbionPlayerDetailed } from '@/features/tracer/models/AlbionTypes';
-import { ComponentType } from 'discord.js';
+import { ComponentType, MessageFlagsBitField } from 'discord.js';
 
 // ─── Fixtures ─────────────────────────────────────────────────────────────────
 
@@ -72,9 +72,12 @@ function makeCollector() {
             if (!handlers[event]) handlers[event] = [];
             handlers[event].push(handler);
         }),
-        emit: (event: string, ...args: any[]) => {
-            (handlers[event] ?? []).forEach((h) => h(...args));
+        // Attend les handlers asynchrones (le code en fait des await avant de répondre)
+        emit: async (event: string, ...args: any[]) => {
+            await Promise.all((handlers[event] ?? []).map((h) => h(...args)));
         },
+        // Appelé par la commande après la première sélection valide (évite une double sélection)
+        stop: jest.fn(),
     };
 }
 
@@ -269,7 +272,7 @@ describe('UpdateCommand', () => {
             await interaction._collector.emit('collect', selectInteraction);
 
             expect(selectInteraction.reply).toHaveBeenCalledWith(expect.objectContaining({
-                ephemeral: true,
+                flags: MessageFlagsBitField.Flags.Ephemeral,
             }));
             expect(selectInteraction.deferUpdate).not.toHaveBeenCalled();
             expect(mockAlbionService.getPlayerDetailsById).not.toHaveBeenCalled();
@@ -305,9 +308,9 @@ describe('UpdateCommand', () => {
 
             await command.execute(interaction as any);
 
-            // collected.size === 0 → timeout
+            // Fin par expiration du délai : discord.js transmet la raison 'time'
             const collected = { size: 0 };
-            await interaction._collector.emit('end', collected);
+            await interaction._collector.emit('end', collected, 'time');
 
             expect(interaction.editReply).toHaveBeenCalledWith(expect.objectContaining({
                 content: expect.stringContaining('Temps écoulé'),
@@ -326,8 +329,9 @@ describe('UpdateCommand', () => {
             // Reset editReply call count after initial menu display
             (interaction.editReply as jest.Mock).mockClear();
 
+            // Fin après sélection : la commande arrête le collector avec la raison 'selected'
             const collected = { size: 1 };
-            await interaction._collector.emit('end', collected);
+            await interaction._collector.emit('end', collected, 'selected');
 
             // editReply ne doit pas avoir été appelé avec un message de timeout
             expect(interaction.editReply).not.toHaveBeenCalledWith(expect.objectContaining({

@@ -18,21 +18,33 @@ import { AlbionPlayer, AlbionPlayerDetailed, TracerUser } from '../models/Albion
  * Colonnes clés: discord_id, albion_id, is_verified, is_main
  */
 export class TracerService {
-    private db: DatabaseService;
-    private logger: LoggerService;
+    private readonly db: DatabaseService;
+    private readonly logger: LoggerService;
 
     /**
      * Crée une instance du service Tracer
      *
+     * @param db - Base de données à utiliser (injection pour les tests)
+     * @param logger - Logger à utiliser (injection pour les tests)
+     *
      * @remarks
-     * Utilise les services partagés du ServiceContainer. Auparavant chaque instance
-     * créait son propre DatabaseService, donc un pool MySQL de 10 connexions par
-     * commande (4 pools supplémentaires jamais fermés à l'arrêt).
+     * Par défaut, utilise les services partagés du ServiceContainer. Ne jamais créer
+     * un `new DatabaseService()` ici : chaque instance ouvrirait son propre pool MySQL
+     * de 10 connexions (jamais fermé à l'arrêt).
      */
-    constructor() {
-        const services = ServiceContainer.getInstance();
-        this.db = services.database;
-        this.logger = services.logger;
+    constructor(db?: DatabaseService, logger?: LoggerService) {
+        this.db = db ?? ServiceContainer.getInstance().database;
+        this.logger = logger ?? ServiceContainer.getInstance().logger;
+    }
+
+    /**
+     * Récupère tous les personnages enregistrés, triés par discord_id puis personnage "main" en premier
+     *
+     * @returns Tous les enregistrements de tracer_users
+     * @throws {Error} Si la requête échoue
+     */
+    public async getAllUsers(): Promise<TracerUser[]> {
+        return this.db.select<TracerUser>('SELECT * FROM tracer_users ORDER BY discord_id, is_main DESC');
     }
 
     /**

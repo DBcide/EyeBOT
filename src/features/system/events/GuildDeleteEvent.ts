@@ -34,8 +34,8 @@ export default class GuildDeleteEvent extends BaseEvent {
     public name = Events.GuildDelete;
     public once = false;
 
-    private logger: LoggerService;
-    private services: ServiceContainer;
+    private readonly logger: LoggerService;
+    private readonly services: ServiceContainer;
 
     /**
      * Crée une instance de l'événement GuildDelete

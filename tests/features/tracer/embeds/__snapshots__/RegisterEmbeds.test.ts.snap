@@ -1,6 +1,6 @@
 // Jest Snapshot v1, https://jestjs.io/docs/snapshot-testing
 
-exports[`EmbedBuilders buildCharacterAlreadyVerifiedEmbed() [snapshot] avec playerName mais sans guildName → affiche "Aucune" 1`] = `
+exports[`RegisterEmbeds buildCharacterAlreadyVerifiedEmbed() [snapshot] avec playerName mais sans guildName → affiche "Aucune" 1`] = `
 {
   "color": 15158332,
   "description": "Ce personnage est déjà lié et **vérifié** par un autre compte Discord (<@506045516421791744>).
@@ -20,7 +20,7 @@ exports[`EmbedBuilders buildCharacterAlreadyVerifiedEmbed() [snapshot] avec play
 }
 `;
 
-exports[`EmbedBuilders buildCharacterAlreadyVerifiedEmbed() [snapshot] avec tous les paramètres optionnels 1`] = `
+exports[`RegisterEmbeds buildCharacterAlreadyVerifiedEmbed() [snapshot] avec tous les paramètres optionnels 1`] = `
 {
   "color": 15158332,
   "description": "Ce personnage est déjà lié et **vérifié** par un autre compte Discord (<@506045516421791744>).
@@ -40,7 +40,7 @@ exports[`EmbedBuilders buildCharacterAlreadyVerifiedEmbed() [snapshot] avec tous
 }
 `;
 
-exports[`EmbedBuilders buildCharacterAlreadyVerifiedEmbed() [snapshot] sans paramètres optionnels → pas de champs additionnels 1`] = `
+exports[`RegisterEmbeds buildCharacterAlreadyVerifiedEmbed() [snapshot] sans paramètres optionnels → pas de champs additionnels 1`] = `
 {
   "color": 15158332,
   "description": "Ce personnage est déjà lié et **vérifié** par un autre compte Discord (<@506045516421791744>).
@@ -51,7 +51,7 @@ exports[`EmbedBuilders buildCharacterAlreadyVerifiedEmbed() [snapshot] sans para
 }
 `;
 
-exports[`EmbedBuilders buildCharactersSummaryEmbed() [snapshot] liste vide → affiche "Aucun personnage enregistré." 1`] = `
+exports[`RegisterEmbeds buildCharactersSummaryEmbed() [snapshot] liste vide → affiche "Aucun personnage enregistré." 1`] = `
 {
   "color": 4886754,
   "description": "Aucun personnage enregistré.",
@@ -63,7 +63,7 @@ exports[`EmbedBuilders buildCharactersSummaryEmbed() [snapshot] liste vide → a
 }
 `;
 
-exports[`EmbedBuilders buildCharactersSummaryEmbed() [snapshot] plusieurs personnages → numérotés et séparés 1`] = `
+exports[`RegisterEmbeds buildCharactersSummaryEmbed() [snapshot] plusieurs personnages → numérotés et séparés 1`] = `
 {
   "color": 4886754,
   "description": "**1.** DBcide - 1.50M Kill Fame 🔒
@@ -77,7 +77,7 @@ exports[`EmbedBuilders buildCharactersSummaryEmbed() [snapshot] plusieurs person
 }
 `;
 
-exports[`EmbedBuilders buildCharactersSummaryEmbed() [snapshot] un personnage non vérifié 1`] = `
+exports[`RegisterEmbeds buildCharactersSummaryEmbed() [snapshot] un personnage non vérifié 1`] = `
 {
   "color": 4886754,
   "description": "**1.** DBcide - 1.50M Kill Fame ",
@@ -89,7 +89,7 @@ exports[`EmbedBuilders buildCharactersSummaryEmbed() [snapshot] un personnage no
 }
 `;
 
-exports[`EmbedBuilders buildCharactersSummaryEmbed() [snapshot] un personnage vérifié → affiche 🔒 1`] = `
+exports[`RegisterEmbeds buildCharactersSummaryEmbed() [snapshot] un personnage vérifié → affiche 🔒 1`] = `
 {
   "color": 4886754,
   "description": "**1.** DBcide - 1.50M Kill Fame 🔒",
@@ -101,7 +101,18 @@ exports[`EmbedBuilders buildCharactersSummaryEmbed() [snapshot] un personnage v�
 }
 `;
 
-exports[`EmbedBuilders buildRegistrationSuccessEmbed() [snapshot] avec guilde et alliance 1`] = `
+exports[`RegisterEmbeds buildPlayerSelectionEmbed() [snapshot] liste numérotée des joueurs trouvés 1`] = `
+{
+  "color": 4886754,
+  "description": "Plusieurs joueurs correspondent à votre recherche. Sélectionnez le bon :
+
+**1.** DBcide - Kill Fame: 1.50M
+**2.** DBcide2 - Kill Fame: 999",
+  "title": "🔍 Plusieurs joueurs trouvés",
+}
+`;
+
+exports[`RegisterEmbeds buildRegistrationSuccessEmbed() [snapshot] avec guilde et alliance 1`] = `
 {
   "color": 5361510,
   "description": "**Discord :** <@506045516421791744>
@@ -114,7 +125,7 @@ exports[`EmbedBuilders buildRegistrationSuccessEmbed() [snapshot] avec guilde et
 }
 `;
 
-exports[`EmbedBuilders buildRegistrationSuccessEmbed() [snapshot] sans guilde ni alliance → affiche "Aucune" 1`] = `
+exports[`RegisterEmbeds buildRegistrationSuccessEmbed() [snapshot] sans guilde ni alliance → affiche "Aucune" 1`] = `
 {
   "color": 5361510,
   "description": "**Discord :** <@506045516421791744>
@@ -127,7 +138,7 @@ exports[`EmbedBuilders buildRegistrationSuccessEmbed() [snapshot] sans guilde ni
 }
 `;
 
-exports[`EmbedBuilders buildRegistrationWithWarningEmbed() [snapshot] avec revendications multiples 1`] = `
+exports[`RegisterEmbeds buildRegistrationWithWarningEmbed() [snapshot] avec revendications multiples 1`] = `
 {
   "color": 15965202,
   "description": "**Discord :** <@506045516421791744>
@@ -146,7 +157,7 @@ Ces comptes n'étant pas vérifiés, vous pouvez aussi le revendiquer.
 }
 `;
 
-exports[`EmbedBuilders buildRegistrationWithWarningEmbed() [snapshot] sans guilde ni alliance → affiche "Aucune" 1`] = `
+exports[`RegisterEmbeds buildRegistrationWithWarningEmbed() [snapshot] sans guilde ni alliance → affiche "Aucune" 1`] = `
 {
   "color": 15965202,
   "description": "**Discord :** <@506045516421791744>
@@ -165,7 +176,7 @@ Ces comptes n'étant pas vérifiés, vous pouvez aussi le revendiquer.
 }
 `;
 
-exports[`EmbedBuilders buildVerificationInstructionsEmbed() [snapshot] embed d'instructions avec nom de personnage et discord ID 1`] = `
+exports[`RegisterEmbeds buildVerificationInstructionsEmbed() [snapshot] embed d'instructions avec nom de personnage et discord ID 1`] = `
 {
   "color": 15965202,
   "description": "Pour **protéger** votre personnage et empêcher d'autres joueurs de le revendiquer :
@@ -184,7 +195,7 @@ exports[`EmbedBuilders buildVerificationInstructionsEmbed() [snapshot] embed d'i
 }
 `;
 
-exports[`EmbedBuilders buildVerificationWarningEmbed() [snapshot] embed d'avertissement avec discord ID 1`] = `
+exports[`RegisterEmbeds buildVerificationWarningEmbed() [snapshot] embed d'avertissement avec discord ID 1`] = `
 {
   "color": 3447003,
   "description": "Pour **sécuriser** votre personnage et empêcher d'autres joueurs de le revendiquer :
@@ -199,5 +210,18 @@ Une fois vérifié, ce personnage sera définitivement lié à votre compte Disc
     "text": "La vérification protège votre personnage contre les revendications frauduleuses",
   },
   "title": "🔒 Comment vérifier votre personnage ?",
+}
+`;
+
+exports[`RegisterEmbeds traduction [snapshot] embed d'enregistrement en anglais 1`] = `
+{
+  "color": 5361510,
+  "description": "**Discord:** <@506045516421791744>
+**Albion:** DBcide
+**Kill Fame:** 1.50M
+**Guild:** None
+**Alliance:** None",
+  "timestamp": "2026-01-01T00:00:00.000Z",
+  "title": "✅ New character registered",
 }
 `;

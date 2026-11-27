@@ -8,6 +8,8 @@ import {
 } from 'discord.js';
 import { BaseCommand } from '../../../core/BaseCommand';
 import { CharacterSyncService } from '../services/CharacterSyncService';
+import { AlbionService } from '../services/AlbionService';
+import { TracerService } from '../services/TracerService';
 import { LoggerService } from '../../../shared/services/LoggerService';
 import { ServiceContainer } from '../../../shared/services/ServiceContainer';
 import { TracerUser } from '../models/AlbionTypes';
@@ -38,16 +40,23 @@ export default class UpdateAllCommand extends BaseCommand {
     public name = 'updateall';
     public description = tracerI18n.default('commands.updateall.description');
 
+    private readonly tracerService: TracerService;
     private readonly syncService: CharacterSyncService;
     private readonly logger: LoggerService;
 
     private readonly BATCH_SIZE = 5;
     private readonly DELAY_BETWEEN_BATCHES_MS = 1000;
 
-    constructor() {
+    /**
+     * @param albionService - Client API Albion (injection pour les tests)
+     * @param tracerService - Accès aux personnages en base (injection pour les tests)
+     * @param logger - Logger (injection pour les tests)
+     */
+    constructor(albionService?: AlbionService, tracerService?: TracerService, logger?: LoggerService) {
         super();
-        this.logger = ServiceContainer.getInstance().logger;
-        this.syncService = new CharacterSyncService();
+        this.logger = logger ?? ServiceContainer.getInstance().logger;
+        this.tracerService = tracerService ?? new TracerService(undefined, this.logger);
+        this.syncService = new CharacterSyncService(albionService, this.tracerService, this.logger);
     }
 
     /**
@@ -61,7 +70,7 @@ export default class UpdateAllCommand extends BaseCommand {
             .setName(this.name)
             .setDescription(this.description)
             .setDescriptionLocalizations(tracerI18n.localizations('commands.updateall.description'))
-            .setDefaultMemberPermissions(PermissionFlagsBits.ManageNicknames) as SlashCommandBuilder;
+            .setDefaultMemberPermissions(PermissionFlagsBits.ManageNicknames);
     }
 
     /**
@@ -185,8 +194,7 @@ export default class UpdateAllCommand extends BaseCommand {
      * Récupère tous les personnages enregistrés, triés par discord_id puis is_main
      */
     private async getAllRegisteredUsers(): Promise<TracerUser[]> {
-        const db = ServiceContainer.getInstance().database;
-        return await db.select<TracerUser>('SELECT * FROM tracer_users ORDER BY discord_id, is_main DESC');
+        return this.tracerService.getAllUsers();
     }
 
     /**

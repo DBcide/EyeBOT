@@ -1,6 +1,7 @@
 import { DatabaseService } from '../shared/services/DatabaseService';
 import { LoggerService } from '../shared/services/LoggerService';
 import { Migration } from './Migration';
+import type mysql from 'mysql2/promise';
 
 /**
  * Service de gestion des migrations de base de données avec tracking et rollback

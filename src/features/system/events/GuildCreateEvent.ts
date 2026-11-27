@@ -33,8 +33,8 @@ export default class GuildCreateEvent extends BaseEvent {
     public name = Events.GuildCreate;
     public once = false;
 
-    private logger: LoggerService;
-    private services: ServiceContainer;
+    private readonly logger: LoggerService;
+    private readonly services: ServiceContainer;
 
     /**
      * Crée une instance de l'événement GuildCreate

@@ -39,8 +39,8 @@ export default class ErrorEvent extends BaseEvent {
     public name = Events.Error;
     public once = false;
 
-    private logger: LoggerService;
-    private services: ServiceContainer;
+    private readonly logger: LoggerService;
+    private readonly services: ServiceContainer;
 
     /**
      * Crée une instance de l'événement Error

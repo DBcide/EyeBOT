@@ -84,7 +84,7 @@ describe('LoggerService', () => {
 
         it('[positif] appelle console.error deux fois et affiche la stack si une Error est fournie', () => {
             const err = new Error('crash inattendu');
-            logger.error('Opération échouée', err);
+            logger.error('Opération échouée', 'test', err);
 
             expect(console.error).toHaveBeenCalledTimes(2);
             expect(console.error).toHaveBeenNthCalledWith(1, expect.stringContaining('[ERROR]'));
@@ -93,7 +93,7 @@ describe('LoggerService', () => {
 
         it('[positif] appelle console.error deux fois et affiche le JSON si un objet plain est fourni', () => {
             const payload = { code: 503, reason: 'timeout' };
-            logger.error('Opération échouée', payload);
+            logger.error('Opération échouée', 'test', payload);
 
             expect(console.error).toHaveBeenCalledTimes(2);
             expect(console.error).toHaveBeenNthCalledWith(1, expect.stringContaining('[ERROR]'));
@@ -101,21 +101,76 @@ describe('LoggerService', () => {
         });
 
         it('[extrême] appelle console.error une seule fois si error est null (valeur falsy)', () => {
-            logger.error('Opération échouée', null);
+            logger.error('Opération échouée', 'test', null);
 
             expect(console.error).toHaveBeenCalledTimes(1);
         });
 
         it('[extrême] appelle console.error une seule fois si error est une chaîne vide (valeur falsy)', () => {
-            logger.error('Opération échouée', '');
+            logger.error('Opération échouée', 'test', '');
 
             expect(console.error).toHaveBeenCalledTimes(1);
         });
 
         it('[extrême] appelle console.error une seule fois si error est 0 (valeur falsy)', () => {
-            logger.error('Opération échouée', 0);
+            logger.error('Opération échouée', 'test', 0);
 
             expect(console.error).toHaveBeenCalledTimes(1);
+        });
+
+        it('[extrême] ne plante pas sur un objet contenant une référence circulaire', () => {
+            const circular: Record<string, unknown> = { code: 1 };
+            circular.self = circular;
+
+            expect(() => logger.error('Opération échouée', 'test', circular)).not.toThrow();
+            expect(console.error).toHaveBeenNthCalledWith(2, expect.stringContaining('[Circular]'));
+        });
+
+        it('[positif] affiche la requête SQL rattachée à une erreur MySQL', () => {
+            const err = Object.assign(new Error('Table inexistante'), { sql: 'SELECT * FROM inconnue' });
+
+            logger.error('Requête échouée', 'database', err);
+
+            expect(console.error).toHaveBeenCalledTimes(3);
+            expect(console.error).toHaveBeenNthCalledWith(3, expect.stringContaining('SQL: SELECT * FROM inconnue'));
+        });
+    });
+
+    // ─── écriture en base ─────────────────────────────────────────────────────
+
+    describe('écriture en base (system_logs)', () => {
+        it('[positif] flush() attend les écritures en cours', async () => {
+            let resolveInsert!: () => void;
+            const db = {
+                isClosed: () => false,
+                insert: jest.fn(() => new Promise<number>((resolve) => { resolveInsert = () => resolve(1); })),
+            };
+            logger.setDatabaseService(db as any);
+
+            logger.info('Message', 'test');
+            let flushed = false;
+            const flushPromise = logger.flush().then(() => { flushed = true; });
+
+            await Promise.resolve();
+            expect(flushed).toBe(false);
+
+            resolveInsert();
+            await flushPromise;
+            expect(flushed).toBe(true);
+            expect(db.insert).toHaveBeenCalledWith(
+                expect.stringContaining('INSERT INTO system_logs'),
+                ['info', 'test', 'Message', null]
+            );
+        });
+
+        it('[extrême] n\'écrit plus en base une fois le pool fermé', async () => {
+            const db = { isClosed: () => true, insert: jest.fn() };
+            logger.setDatabaseService(db as any);
+
+            logger.warn('Après fermeture', 'test');
+            await logger.flush();
+
+            expect(db.insert).not.toHaveBeenCalled();
         });
     });
 
@@ -136,7 +191,7 @@ describe('LoggerService', () => {
             delete process.env.NODE_ENV;
             const data = { players: 3, guild: 'Sunfall' };
 
-            logger.debug('Résultats', data);
+            logger.debug('Résultats', 'test', data);
 
             expect(console.log).toHaveBeenCalledTimes(2);
             expect(console.log).toHaveBeenNthCalledWith(2, expect.stringContaining(JSON.stringify(data, null, 2)));
@@ -155,7 +210,7 @@ describe('LoggerService', () => {
         it('[extrême] appelle console.log une seule fois si data est null (valeur falsy)', () => {
             delete process.env.NODE_ENV;
 
-            logger.debug('Message', null);
+            logger.debug('Message', 'test', null);
 
             expect(console.log).toHaveBeenCalledTimes(1);
         });
@@ -163,7 +218,7 @@ describe('LoggerService', () => {
         it('[extrême] appelle console.log une seule fois si data est 0 (valeur falsy)', () => {
             delete process.env.NODE_ENV;
 
-            logger.debug('Message', 0);
+            logger.debug('Message', 'test', 0);
 
             expect(console.log).toHaveBeenCalledTimes(1);
         });

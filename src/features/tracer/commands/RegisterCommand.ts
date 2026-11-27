@@ -16,6 +16,7 @@ import { getAlbionApiErrorMessage } from '../utils/ErrorHandlers';
 import { tracerI18n, TracerTranslator } from '../i18n';
 import { buildPlayerSelectMenu } from '../components/SelectMenus';
 import { CharacterUpdateHandler } from '../handlers/CharacterUpdateHandler';
+import { CharacterSyncService } from '../services/CharacterSyncService';
 import {
     buildCharacterAlreadyVerifiedEmbed,
     buildCharactersSummaryEmbed,
@@ -73,13 +74,23 @@ export default class RegisterCommand extends BaseCommand {
 
     private readonly SELECTION_TIMEOUT_MS = 60_000;
 
-    constructor() {
+    /**
+     * @param albionService - Client API Albion (injection pour les tests)
+     * @param tracerService - Accès aux personnages en base (injection pour les tests)
+     * @param logger - Logger (injection pour les tests)
+     *
+     * @remarks
+     * Sans paramètre (chargement par Bot.ts), les services partagés sont utilisés.
+     */
+    constructor(albionService?: AlbionService, tracerService?: TracerService, logger?: LoggerService) {
         super();
-        const services = ServiceContainer.getInstance();
-        this.logger = services.logger;
-        this.albionService = new AlbionService();
-        this.tracerService = new TracerService();
-        this.updateHandler = new CharacterUpdateHandler();
+        this.logger = logger ?? ServiceContainer.getInstance().logger;
+        this.albionService = albionService ?? new AlbionService(this.logger);
+        this.tracerService = tracerService ?? new TracerService(undefined, this.logger);
+        this.updateHandler = new CharacterUpdateHandler(
+            new CharacterSyncService(this.albionService, this.tracerService, this.logger),
+            this.logger
+        );
     }
 
     /**

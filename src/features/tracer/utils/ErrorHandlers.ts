@@ -24,15 +24,9 @@ import { TracerTranslator } from '../i18n';
  * }
  * ```
  */
-<<<<<<< HEAD
 export function getAlbionApiErrorMessage(error: any, t: TracerTranslator): string {
-    if (!error || !error.message) {
-        return t('errors.albion.unknown');
-=======
-export function getAlbionApiErrorMessage(error: any): string {
     if (!error?.message) {
-        return '❌ Une erreur inconnue est survenue.';
->>>>>>> fc702880329b712be25dc0220687c57c247aaf1a
+        return t('errors.albion.unknown');
     }
 
     const message = String(error.message).toLowerCase();

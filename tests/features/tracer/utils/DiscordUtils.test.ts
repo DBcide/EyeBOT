@@ -93,7 +93,7 @@ describe('updateMemberNickname', () => {
         await updateMemberNickname(mockGuild as Guild, '123456', 'DBcide', 'Sunfall', mockLogger);
 
         expect(mockLogger.warn).toHaveBeenCalledTimes(1);
-        expect(mockLogger.warn).toHaveBeenCalledWith(expect.stringContaining('123456'));
+        expect(mockLogger.warn).toHaveBeenCalledWith(expect.stringContaining('123456'), 'tracer');
     });
 
     it('[extrême] appelle logger.debug avec le message si l\'erreur est une instance Error', async () => {
@@ -102,7 +102,7 @@ describe('updateMemberNickname', () => {
 
         await updateMemberNickname(mockGuild as Guild, '123456', 'DBcide', 'Sunfall', mockLogger);
 
-        expect(mockLogger.debug).toHaveBeenCalledWith(expect.stringContaining(err.message));
+        expect(mockLogger.debug).toHaveBeenCalledWith(expect.stringContaining(err.message), 'tracer');
     });
 
     it('[extrême] n\'appelle pas logger.debug si l\'erreur n\'est pas une instance Error', async () => {

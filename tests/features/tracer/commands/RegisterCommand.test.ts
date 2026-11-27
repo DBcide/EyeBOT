@@ -3,7 +3,7 @@ import { AlbionService } from '@/features/tracer/services/AlbionService';
 import { TracerService } from '@/features/tracer/services/TracerService';
 import { LoggerService } from '@/shared/services/LoggerService';
 import { AlbionPlayer, TracerUser } from '@/features/tracer/models/AlbionTypes';
-import { ComponentType } from 'discord.js';
+import { ComponentType, MessageFlagsBitField } from 'discord.js';
 
 // ─── Mocks modules ────────────────────────────────────────────────────────────
 
@@ -65,9 +65,12 @@ function makeCollector() {
             if (!handlers[event]) handlers[event] = [];
             handlers[event].push(handler);
         }),
-        emit: (event: string, ...args: any[]) => {
-            (handlers[event] ?? []).forEach((h) => h(...args));
+        // Attend les handlers asynchrones (le code en fait des await avant de répondre)
+        emit: async (event: string, ...args: any[]) => {
+            await Promise.all((handlers[event] ?? []).map((h) => h(...args)));
         },
+        // Appelé par la commande après la première sélection valide (évite une double sélection)
+        stop: jest.fn(),
     };
 }
 
@@ -105,7 +108,7 @@ function createMockInteraction(pseudo = 'DBcide', userId = USER_ID) {
 
 describe('RegisterCommand', () => {
     let command: RegisterCommand;
-    let mockAlbionService: jest.Mocked<Pick<AlbionService, 'searchPlayer' | 'formatFame'>>;
+    let mockAlbionService: jest.Mocked<Pick<AlbionService, 'searchPlayer' | 'formatFame' | 'getPlayerDetailsById'>>;
     let mockTracerService: jest.Mocked<Pick<
         TracerService,
         | 'isCharacterVerifiedByOther'
@@ -115,6 +118,7 @@ describe('RegisterCommand', () => {
         | 'registerUser'
         | 'getRegisteredUsers'
         | 'isAlbionCharacterVerified'
+        | 'updateUserFromApi'
     >>;
     let mockLogger: jest.Mocked<LoggerService>;
 
@@ -133,6 +137,7 @@ describe('RegisterCommand', () => {
         mockAlbionService = {
             searchPlayer: jest.fn(),
             formatFame: jest.fn().mockReturnValue('1.50M'),
+            getPlayerDetailsById: jest.fn(),
         };
 
         mockTracerService = {
@@ -143,6 +148,7 @@ describe('RegisterCommand', () => {
             registerUser: jest.fn(),
             getRegisteredUsers: jest.fn(),
             isAlbionCharacterVerified: jest.fn(),
+            updateUserFromApi: jest.fn().mockResolvedValue(undefined),
         };
 
         mockLogger = {
@@ -242,16 +248,16 @@ describe('RegisterCommand', () => {
             expect(mockTracerService.registerUser).not.toHaveBeenCalled();
         });
 
-        it('[extrême] appelle handleAlreadyRegistered si l\'utilisateur a déjà ce personnage', async () => {
+        it("[extrême] met à jour le personnage (flux /update) si l'utilisateur l'a déjà enregistré", async () => {
             const interaction = createMockInteraction();
             mockAlbionService.searchPlayer.mockResolvedValue([mockPlayer]);
             mockTracerService.isCharacterVerifiedByOther.mockResolvedValue(null);
             mockTracerService.getUserRegistrationForCharacter.mockResolvedValue(mockTracerUser);
-            mockTracerService.isAlbionCharacterVerified.mockResolvedValue(false);
+            mockAlbionService.getPlayerDetailsById.mockResolvedValue(mockPlayer as any);
 
             await command.execute(interaction as any);
 
-            expect(mockTracerService.isAlbionCharacterVerified).toHaveBeenCalledWith('player-abc');
+            expect(mockAlbionService.getPlayerDetailsById).toHaveBeenCalledWith('player-abc');
             expect(mockTracerService.registerUser).not.toHaveBeenCalled();
         });
 
@@ -276,36 +282,57 @@ describe('RegisterCommand', () => {
         });
     });
 
-    // ─── handleAlreadyRegistered() ────────────────────────────────────────────
+    // ─── Personnage déjà lié au compte ────────────────────────────────────────
+    // Un utilisateur qui revient sur un serveur (ou en rejoint un autre utilisant le bot)
+    // refait /register : son personnage est mis à jour et il est renommé sur ce serveur.
 
-    describe('handleAlreadyRegistered()', () => {
-        it('[positif] editReply embed vert si le personnage est vérifié', async () => {
-            const interaction = createMockInteraction();
+    describe('personnage déjà lié au compte', () => {
+        beforeEach(() => {
             mockAlbionService.searchPlayer.mockResolvedValue([mockPlayer]);
             mockTracerService.isCharacterVerifiedByOther.mockResolvedValue(null);
             mockTracerService.getUserRegistrationForCharacter.mockResolvedValue(mockTracerUser);
-            mockTracerService.isAlbionCharacterVerified.mockResolvedValue(true);
-
-            await command.execute(interaction as any);
-
-            const call = (interaction.editReply as jest.Mock).mock.calls[0][0];
-            expect(call.embeds[0].data.color).toBe(0x2ECC71);
-            expect(call.embeds[0].data.fields).toBeUndefined();
         });
 
-        it('[extrême] editReply embed rouge + champ "Conseil" si le personnage n\'est pas vérifié', async () => {
+        it('[positif] rafraîchit les stats, renomme le membre et affiche "Personnage mis à jour"', async () => {
             const interaction = createMockInteraction();
-            mockAlbionService.searchPlayer.mockResolvedValue([mockPlayer]);
-            mockTracerService.isCharacterVerifiedByOther.mockResolvedValue(null);
-            mockTracerService.getUserRegistrationForCharacter.mockResolvedValue(mockTracerUser);
-            mockTracerService.isAlbionCharacterVerified.mockResolvedValue(false);
+            mockAlbionService.getPlayerDetailsById.mockResolvedValue(mockPlayer as any);
 
             await command.execute(interaction as any);
 
-            const call = (interaction.editReply as jest.Mock).mock.calls[0][0];
-            expect(call.embeds[0].data.color).toBe(0xFF6B6B);
-            expect(call.embeds[0].data.fields).toHaveLength(1);
-            expect(call.embeds[0].data.fields[0].name).toContain('Conseil');
+            expect(mockTracerService.updateUserFromApi).toHaveBeenCalledWith('player-abc', mockPlayer);
+            expect(mockUpdateNickname).toHaveBeenCalledWith(interaction.guild, USER_ID, 'DBcide', 'Sunfall', mockLogger);
+            const calls = (interaction.editReply as jest.Mock).mock.calls;
+            const call = calls[calls.length - 1][0];
+            expect(call.embeds[0].data.title).toContain('Personnage mis à jour');
+            expect(call.embeds[0].data.color).toBe(0x51CF66);
+            // Pas de nouvel enregistrement ni de MP / message public
+            expect(mockTracerService.registerUser).not.toHaveBeenCalled();
+            expect(interaction.user.send).not.toHaveBeenCalled();
+            expect(interaction.channel.send).not.toHaveBeenCalled();
+        });
+
+        it("[extrême] editReply 'Impossible de récupérer' si le personnage n'existe plus sur l'API", async () => {
+            const interaction = createMockInteraction();
+            mockAlbionService.getPlayerDetailsById.mockResolvedValue(null);
+
+            await command.execute(interaction as any);
+
+            expect(mockTracerService.updateUserFromApi).not.toHaveBeenCalled();
+            expect(interaction.editReply).toHaveBeenCalledWith(expect.objectContaining({
+                content: expect.stringContaining('Impossible de récupérer'),
+            }));
+        });
+
+        it("[extrême] editReply message d'erreur API et un seul log si l'API échoue", async () => {
+            const interaction = createMockInteraction();
+            mockAlbionService.getPlayerDetailsById.mockRejectedValue(new Error('Request timeout'));
+
+            await command.execute(interaction as any);
+
+            expect(mockLogger.error).toHaveBeenCalledTimes(1);
+            expect(interaction.editReply).toHaveBeenCalledWith(expect.objectContaining({
+                content: expect.stringContaining('trop de temps'),
+            }));
         });
     });
 
@@ -340,7 +367,7 @@ describe('RegisterCommand', () => {
 
             await command.execute(interaction as any);
 
-            expect(mockLogger.warn).toHaveBeenCalledWith(expect.stringContaining('MP'));
+            expect(mockLogger.warn).toHaveBeenCalledWith(expect.stringContaining('MP'), 'tracer');
             expect(interaction.editReply).toHaveBeenCalledWith(expect.objectContaining({
                 content: expect.stringContaining('Enregistrement réussi'),
             }));
@@ -485,7 +512,7 @@ describe('RegisterCommand', () => {
             await interaction._collector.emit('collect', selectInteraction);
 
             expect(selectInteraction.reply).toHaveBeenCalledWith(expect.objectContaining({
-                ephemeral: true,
+                flags: MessageFlagsBitField.Flags.Ephemeral,
             }));
             expect(selectInteraction.deferUpdate).not.toHaveBeenCalled();
         });
@@ -520,7 +547,7 @@ describe('RegisterCommand', () => {
 
             await command.execute(interaction as any);
 
-            await interaction._collector.emit('end', { size: 0 });
+            await interaction._collector.emit('end', { size: 0 }, 'time');
 
             expect(interaction.editReply).toHaveBeenCalledWith(expect.objectContaining({
                 content: expect.stringContaining('Temps écoulé'),
@@ -536,7 +563,7 @@ describe('RegisterCommand', () => {
             await command.execute(interaction as any);
 
             (interaction.editReply as jest.Mock).mockClear();
-            await interaction._collector.emit('end', { size: 1 });
+            await interaction._collector.emit('end', { size: 1 }, 'selected');
 
             expect(interaction.editReply).not.toHaveBeenCalledWith(expect.objectContaining({
                 content: expect.stringContaining('Temps écoulé'),

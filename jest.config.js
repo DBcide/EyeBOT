@@ -4,6 +4,7 @@ module.exports = {
     testEnvironment: 'node',
     roots: ['<rootDir>/tests'],
     testMatch: ['**/*.test.ts', '**/*.spec.ts'],
+    setupFilesAfterEnv: ['<rootDir>/tests/setup.ts'],
     moduleNameMapper: {
         '^@/(.*)$': '<rootDir>/src/$1',
     },
