@@ -1,5 +1,5 @@
 import { ActionRowBuilder, StringSelectMenuBuilder } from 'discord.js';
-import { TracerTranslator } from '../i18n';
+import { TracerTranslator } from '../translations';
 import { formatFame } from '../utils/FameUtils';
 import { MAX_SELECT_OPTIONS } from '../constants';
 import { CharacterView } from '../embeds/types';
@@ -7,7 +7,7 @@ import { CharacterView } from '../embeds/types';
 /**
  * Composants interactifs (menus déroulants) de la feature tracer
  *
- * Même principe que le dossier `embeds/` : construction pure, textes traduits via `t`.
+ * Même principe que le dossier `embeds/` : construction pure, textes traduits via `translate`.
  */
 
 /** Un élément sélectionnable : les données affichées + la valeur renvoyée par Discord */
@@ -24,14 +24,14 @@ function buildCharacterMenu(
     customId: string,
     placeholder: string,
     characters: SelectableCharacter[],
-    t: TracerTranslator,
+    translate: TracerTranslator,
     keys: { label: 'register.selection.optionLabel' | 'update.selection.optionLabel'; description: 'register.selection.optionDescription' | 'update.selection.optionDescription' }
 ): ActionRowBuilder<StringSelectMenuBuilder> {
     const options = characters.slice(0, MAX_SELECT_OPTIONS).map((character, index) => ({
-        label: t(keys.label, { index: index + 1, name: character.name }),
-        description: t(keys.description, {
+        label: translate(keys.label, { index: index + 1, name: character.name }),
+        description: translate(keys.description, {
             killFame: formatFame(character.killFame),
-            guild: character.guildName || t('labels.noGuild'),
+            guild: character.guildName || translate('labels.noGuild'),
         }),
         value: character.id,
     }));
@@ -47,14 +47,14 @@ function buildCharacterMenu(
 /**
  * Menu de choix du joueur Albion parmi les résultats de recherche (/register)
  *
- * @param t - Traductions dans la langue de l'utilisateur
+ * @param translate - Traductions dans la langue de l'utilisateur
  * @param players - Joueurs trouvés (valeur de l'option = ID Albion)
  */
 export function buildPlayerSelectMenu(
-    t: TracerTranslator,
+    translate: TracerTranslator,
     players: SelectableCharacter[]
 ): ActionRowBuilder<StringSelectMenuBuilder> {
-    return buildCharacterMenu('select-player', t('register.selection.placeholder'), players, t, {
+    return buildCharacterMenu('select-player', translate('register.selection.placeholder'), players, translate, {
         label: 'register.selection.optionLabel',
         description: 'register.selection.optionDescription',
     });
@@ -63,14 +63,14 @@ export function buildPlayerSelectMenu(
 /**
  * Menu de choix du personnage enregistré à mettre à jour (/update)
  *
- * @param t - Traductions dans la langue de l'utilisateur
+ * @param translate - Traductions dans la langue de l'utilisateur
  * @param characters - Personnages de l'utilisateur (valeur de l'option = ID Albion)
  */
 export function buildCharacterSelectMenu(
-    t: TracerTranslator,
+    translate: TracerTranslator,
     characters: SelectableCharacter[]
 ): ActionRowBuilder<StringSelectMenuBuilder> {
-    return buildCharacterMenu('select-character-update', t('update.selection.placeholder'), characters, t, {
+    return buildCharacterMenu('select-character-update', translate('update.selection.placeholder'), characters, translate, {
         label: 'update.selection.optionLabel',
         description: 'update.selection.optionDescription',
     });

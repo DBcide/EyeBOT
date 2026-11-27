@@ -2,7 +2,7 @@ import { CharacterUpdateHandler } from '@/features/tracer/handlers/CharacterUpda
 import { CharacterSyncService } from '@/features/tracer/services/CharacterSyncService';
 import { LoggerService } from '@/shared/services/LoggerService';
 import { ServiceContainer } from '@/shared/services/ServiceContainer';
-import { tracerI18n } from '@/features/tracer/i18n';
+import { tracerTranslations } from '@/features/tracer/translations';
 import { AlbionPlayerDetailed, TracerUser } from '@/features/tracer/models/AlbionTypes';
 
 const character = { albion_id: 'player-abc', albion_name: 'DBcide' } as TracerUser;
@@ -32,7 +32,7 @@ describe('CharacterUpdateHandler', () => {
     it('[positif] synchronise puis affiche l\'embed "Personnage mis à jour"', async () => {
         const interaction = createInteraction();
 
-        await handler.updateAndReply(interaction as any, tracerI18n.for('fr'), character);
+        await handler.updateAndReply(interaction as any, tracerTranslations.forLocale('fr'), character);
 
         expect(mockSync.syncCharacter).toHaveBeenCalledWith(interaction.guild, 'user-1', 'player-abc');
         const reply = interaction.editReply.mock.calls[0][0];
@@ -45,7 +45,7 @@ describe('CharacterUpdateHandler', () => {
     it('[positif] répond dans la langue fournie', async () => {
         const interaction = createInteraction();
 
-        await handler.updateAndReply(interaction as any, tracerI18n.for('en'), character);
+        await handler.updateAndReply(interaction as any, tracerTranslations.forLocale('en'), character);
 
         expect(interaction.editReply.mock.calls[0][0].embeds[0].data.title).toBe('✅ Character updated');
     });
@@ -54,7 +54,7 @@ describe('CharacterUpdateHandler', () => {
         const interaction = createInteraction();
         mockSync.syncCharacter.mockResolvedValue(null);
 
-        await handler.updateAndReply(interaction as any, tracerI18n.for('fr'), character);
+        await handler.updateAndReply(interaction as any, tracerTranslations.forLocale('fr'), character);
 
         expect(interaction.editReply).toHaveBeenCalledWith({
             content: '❌ Impossible de récupérer les informations du personnage "DBcide" depuis l\'API Albion.',
@@ -69,7 +69,7 @@ describe('CharacterUpdateHandler', () => {
         const error = new Error('rate limit');
         mockSync.syncCharacter.mockRejectedValue(error);
 
-        await handler.updateAndReply(interaction as any, tracerI18n.for('fr'), character);
+        await handler.updateAndReply(interaction as any, tracerTranslations.forLocale('fr'), character);
 
         expect(mockLogger.error).toHaveBeenCalledTimes(1);
         expect(mockLogger.error).toHaveBeenCalledWith(expect.any(String), 'tracer', error);

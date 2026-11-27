@@ -18,7 +18,7 @@ export type TranslationTree = { readonly [key: string]: TranslationValue };
  * // 'register.title' | 'register.lines'
  * ```
  *
- * Une faute de frappe dans une clé (`t('register.titel')`) est donc une erreur TypeScript.
+ * Une faute de frappe dans une clé (`translate('register.titel')`) est donc une erreur TypeScript.
  */
 export type TranslationKey<T> = {
     [K in keyof T & string]: T[K] extends string | readonly string[]

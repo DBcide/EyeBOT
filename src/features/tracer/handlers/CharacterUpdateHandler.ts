@@ -3,7 +3,7 @@ import { CharacterSyncService } from '../services/CharacterSyncService';
 import { LoggerService } from '../../../shared/services/LoggerService';
 import { ServiceContainer } from '../../../shared/services/ServiceContainer';
 import { TracerUser } from '../models/AlbionTypes';
-import { TracerTranslator } from '../i18n';
+import { TracerTranslator } from '../translations';
 import { getAlbionApiErrorMessage } from '../utils/ErrorHandlers';
 import { buildCharacterUpdatedEmbed, fromAlbionPlayer } from '../embeds';
 
@@ -37,7 +37,7 @@ export class CharacterUpdateHandler {
      * Rafraîchit le personnage (API → DB → pseudo) et affiche le résultat
      *
      * @param interaction - Interaction déjà différée (deferReply) : la réponse passe par editReply
-     * @param t - Traductions dans la langue de l'utilisateur
+     * @param translate - Traductions dans la langue de l'utilisateur
      * @param character - Le personnage à mettre à jour, tel qu'enregistré en base
      *
      * @remarks
@@ -46,7 +46,7 @@ export class CharacterUpdateHandler {
      */
     public async updateAndReply(
         interaction: ChatInputCommandInteraction,
-        t: TracerTranslator,
+        translate: TracerTranslator,
         character: TracerUser
     ): Promise<void> {
         try {
@@ -60,7 +60,7 @@ export class CharacterUpdateHandler {
 
             if (!playerDetails) {
                 await interaction.editReply({
-                    content: t('update.apiUnavailable', { name: character.albion_name }),
+                    content: translate('update.apiUnavailable', { name: character.albion_name }),
                     embeds: [],
                     components: [],
                 });
@@ -69,7 +69,7 @@ export class CharacterUpdateHandler {
 
             await interaction.editReply({
                 content: null,
-                embeds: [buildCharacterUpdatedEmbed(t, fromAlbionPlayer(playerDetails))],
+                embeds: [buildCharacterUpdatedEmbed(translate, fromAlbionPlayer(playerDetails))],
                 components: [],
             });
 
@@ -78,7 +78,7 @@ export class CharacterUpdateHandler {
             this.logger.error('Erreur lors de la mise à jour du personnage', 'tracer', error);
 
             await interaction.editReply({
-                content: getAlbionApiErrorMessage(error, t),
+                content: getAlbionApiErrorMessage(error, translate),
                 embeds: [],
                 components: [],
             });

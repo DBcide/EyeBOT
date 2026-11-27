@@ -12,7 +12,7 @@ import { BaseEvent } from './BaseEvent';
 import { LoggerService } from '../shared/services/LoggerService';
 import { ServiceContainer } from '../shared/services/ServiceContainer';
 import { HealthMonitorService } from '../shared/services/HealthMonitorService';
-import { commonI18n } from '../shared/i18n';
+import { commonTranslations } from '../shared/i18n';
 import fs from 'node:fs';
 import path from 'node:path';
 
@@ -322,9 +322,9 @@ export class Bot {
      */
     private async replyWithError(interaction: ChatInputCommandInteraction): Promise<void> {
         try {
-            const t = commonI18n.for(await this.services.locale.resolveForInteraction(interaction));
+            const translate = commonTranslations.forLocale(await this.services.locale.resolveForInteraction(interaction));
             const errorMessage = {
-                content: t('common.errors.command'),
+                content: translate('common.errors.command'),
                 flags: MessageFlags.Ephemeral,
             } as const;
 

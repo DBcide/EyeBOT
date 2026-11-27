@@ -6,7 +6,7 @@ import {
 import { BaseCommand } from '../../../core/BaseCommand';
 import { ServiceContainer } from '../../../shared/services/ServiceContainer';
 import { LOCALES, SUPPORTED_LOCALES, isSupportedLocale } from '../../../shared/i18n';
-import { settingsI18n } from '../i18n';
+import { settingsTranslations } from '../translations';
 
 /** Valeur de l'option pour revenir à la langue du client Discord */
 const AUTO_VALUE = 'auto';
@@ -22,7 +22,7 @@ const AUTO_VALUE = 'auto';
  */
 export default class LanguageCommand extends BaseCommand {
     public name = 'language';
-    public description = settingsI18n.default('commands.language.description');
+    public description = settingsTranslations.defaultText('commands.language.description');
 
     /**
      * Construit la commande avec une option à choix (une par langue + automatique)
@@ -31,17 +31,17 @@ export default class LanguageCommand extends BaseCommand {
         return new SlashCommandBuilder()
             .setName(this.name)
             .setDescription(this.description)
-            .setDescriptionLocalizations(settingsI18n.localizations('commands.language.description'))
+            .setDescriptionLocalizations(settingsTranslations.discordLocalizations('commands.language.description'))
             .addStringOption((option) =>
                 option
                     .setName('language')
-                    .setDescription(settingsI18n.default('commands.language.options.language'))
-                    .setDescriptionLocalizations(settingsI18n.localizations('commands.language.options.language'))
+                    .setDescription(settingsTranslations.defaultText('commands.language.options.language'))
+                    .setDescriptionLocalizations(settingsTranslations.discordLocalizations('commands.language.options.language'))
                     .setRequired(true)
                     .addChoices(
                         {
-                            name: settingsI18n.default('commands.language.auto'),
-                            name_localizations: settingsI18n.localizations('commands.language.auto'),
+                            name: settingsTranslations.defaultText('commands.language.auto'),
+                            name_localizations: settingsTranslations.discordLocalizations('commands.language.auto'),
                             value: AUTO_VALUE,
                         },
                         // Libellé dans la langue elle-même ("English", "Français") : lisible par tous
@@ -64,18 +64,18 @@ export default class LanguageCommand extends BaseCommand {
             await localeService.setUserLocale(interaction.user.id, newLocale);
         } catch (error) {
             ServiceContainer.getInstance().logger.error('Erreur lors de l\'enregistrement de la langue', 'i18n', error);
-            const t = settingsI18n.for(await this.resolveLocale(interaction));
-            await interaction.reply({ content: t('language.error'), flags: MessageFlagsBitField.Flags.Ephemeral });
+            const translate = settingsTranslations.forLocale(await this.resolveLocale(interaction));
+            await interaction.reply({ content: translate('language.error'), flags: MessageFlagsBitField.Flags.Ephemeral });
             return;
         }
 
         // Après l'enregistrement : langue choisie, ou langue Discord en mode automatique
         const effectiveLocale = await this.resolveLocale(interaction);
-        const t = settingsI18n.for(effectiveLocale);
+        const translate = settingsTranslations.forLocale(effectiveLocale);
         const label = LOCALES[effectiveLocale].label;
 
         await interaction.reply({
-            content: newLocale ? t('language.updated', { language: label }) : t('language.reset', { language: label }),
+            content: newLocale ? translate('language.updated', { language: label }) : translate('language.reset', { language: label }),
             flags: MessageFlagsBitField.Flags.Ephemeral,
         });
     }

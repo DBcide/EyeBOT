@@ -9,18 +9,18 @@ import { ServiceContainer } from '../services/ServiceContainer';
  * @typeParam T - Forme du catalogue (déduite du fichier JSON de la langue par défaut)
  *
  * @remarks
- * - `for(locale)` renvoie une fonction `t(key, params)` liée à une langue
+ * - `forLocale(locale)` renvoie une fonction `translate(key, params)` liée à une langue
  * - Si une clé manque dans une langue, la langue par défaut est utilisée, puis la clé brute
  * - Les placeholders `{nom}` sont remplacés par `params.nom`
  * - Une valeur tableau est jointe avec '\n' (une ligne d'embed par élément)
  *
  * @example
  * ```typescript
- * const t = tracerI18n.for('en');
- * t('register.playerNotFound', { pseudo: 'DBcide' });
+ * const translate = tracerTranslations.forLocale('en');
+ * translate('register.playerNotFound', { pseudo: 'DBcide' });
  * ```
  */
-export class I18n<T extends TranslationTree> {
+export class TranslationCatalog<T extends TranslationTree> {
     /**
      * @param catalogs - Un catalogue par langue supportée (vérifié à la compilation)
      */
@@ -30,10 +30,10 @@ export class I18n<T extends TranslationTree> {
      * Renvoie la fonction de traduction pour une langue
      *
      * @param locale - La langue cible
-     * @returns Une fonction `t(key, params)`
+     * @returns Une fonction `translate(key, params)`
      */
-    public for(locale: Locale): Translator<T> {
-        return (key, params) => this.translate(locale, key, params);
+    public forLocale(locale: Locale): Translator<T> {
+        return (key, params) => this.resolveText(locale, key, params);
     }
 
     /**
@@ -43,8 +43,8 @@ export class I18n<T extends TranslationTree> {
      * Utilisé pour les textes enregistrés chez Discord (descriptions des commandes),
      * qui servent de valeur par défaut quand la langue du client n'est pas traduite.
      */
-    public default(key: TranslationKey<T>, params?: TranslationParams): string {
-        return this.translate(DEFAULT_LOCALE, key, params);
+    public defaultText(key: TranslationKey<T>, params?: TranslationParams): string {
+        return this.resolveText(DEFAULT_LOCALE, key, params);
     }
 
     /**
@@ -57,12 +57,12 @@ export class I18n<T extends TranslationTree> {
      * Discord affiche ainsi la description des commandes dans la langue du client,
      * sans dépendre de la préférence enregistrée en base.
      */
-    public localizations(key: TranslationKey<T>, params?: TranslationParams): Partial<Record<DiscordLocale, string>> {
+    public discordLocalizations(key: TranslationKey<T>, params?: TranslationParams): Partial<Record<DiscordLocale, string>> {
         const result: Partial<Record<DiscordLocale, string>> = {};
 
         for (const locale of SUPPORTED_LOCALES) {
             if (locale === DEFAULT_LOCALE) continue;
-            const text = this.translate(locale, key, params);
+            const text = this.resolveText(locale, key, params);
             for (const discordLocale of LOCALES[locale].discordLocales) {
                 result[discordLocale] = text;
             }
@@ -71,8 +71,13 @@ export class I18n<T extends TranslationTree> {
         return result;
     }
 
-    private translate(locale: Locale, key: string, params?: TranslationParams): string {
-        const value = lookup(this.catalogs[locale], key) ?? lookup(this.catalogs[DEFAULT_LOCALE], key);
+    /**
+     * Cherche le texte d'une clé (langue demandée, puis langue par défaut) et remplit ses placeholders
+     *
+     * @returns Le texte final, ou la clé brute (avec un warning) si elle n'existe dans aucune langue
+     */
+    private resolveText(locale: Locale, key: string, params?: TranslationParams): string {
+        const value = findTextByKey(this.catalogs[locale], key) ?? findTextByKey(this.catalogs[DEFAULT_LOCALE], key);
 
         if (value === undefined) {
             ServiceContainer.getInstance().logger.warn(`Clé de traduction introuvable: ${key} (${locale})`, 'i18n');
@@ -80,7 +85,7 @@ export class I18n<T extends TranslationTree> {
         }
 
         const text = typeof value === 'string' ? value : value.join('\n');
-        return interpolate(text, params);
+        return fillPlaceholders(text, params);
     }
 }
 
@@ -89,7 +94,7 @@ export class I18n<T extends TranslationTree> {
  *
  * @returns La chaîne ou le tableau de lignes, undefined si la clé n'existe pas
  */
-function lookup(tree: TranslationTree, key: string): string | readonly string[] | undefined {
+function findTextByKey(tree: TranslationTree, key: string): string | readonly string[] | undefined {
     let node: TranslationValue | undefined = tree;
 
     for (const part of key.split('.')) {
@@ -113,7 +118,7 @@ function lookup(tree: TranslationTree, key: string): string | readonly string[] 
  * (ex: un pseudo saisi par un joueur) n'est jamais réinterprétée.
  * Un placeholder sans paramètre est laissé tel quel (visible, donc facile à repérer).
  */
-function interpolate(text: string, params?: TranslationParams): string {
+function fillPlaceholders(text: string, params?: TranslationParams): string {
     if (!params) return text;
     return text.replace(/\{(\w+)\}/g, (match, name: string) =>
         Object.prototype.hasOwnProperty.call(params, name) ? String(params[name]) : match

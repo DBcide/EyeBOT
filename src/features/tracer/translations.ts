@@ -1,6 +1,6 @@
 import fr from './locales/fr.json';
 import en from './locales/en.json';
-import { CommonMessages, Locale, Translator, createFeatureI18n } from '../../shared/i18n';
+import { CommonMessages, Locale, Translator, createFeatureTranslations } from '../../shared/i18n';
 
 /** Forme du catalogue tracer, déduite du fichier de la langue de référence (fr) */
 export type TracerMessages = typeof fr;
@@ -12,7 +12,7 @@ export type TracerMessages = typeof fr;
 const catalogs: Record<Locale, TracerMessages> = { fr, en };
 
 /** Traductions de la feature tracer (+ clés `common.*`) */
-export const tracerI18n = createFeatureI18n(catalogs);
+export const tracerTranslations = createFeatureTranslations(catalogs);
 
-/** Fonction `t(key, params)` du tracer, passée aux builders d'embeds */
+/** Fonction `translate(key, params)` du tracer, passée aux builders d'embeds et de menus */
 export type TracerTranslator = Translator<CommonMessages & TracerMessages>;

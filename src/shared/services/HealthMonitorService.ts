@@ -401,10 +401,10 @@ export class HealthMonitorService {
      */
     private formatBytes(bytes: number): string {
         if (bytes === 0) return '0 B';
-        const k = 1024;
-        const sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
-        const i = Math.floor(Math.log(bytes) / Math.log(k));
-        return `${(bytes / Math.pow(k, i)).toFixed(2)} ${sizes[i]}`;
+        const BYTES_PER_UNIT = 1024;
+        const units = ['B', 'KB', 'MB', 'GB', 'TB'];
+        const unitIndex = Math.floor(Math.log(bytes) / Math.log(BYTES_PER_UNIT));
+        return `${(bytes / Math.pow(BYTES_PER_UNIT, unitIndex)).toFixed(2)} ${units[unitIndex]}`;
     }
 
     /**
@@ -723,11 +723,11 @@ export class HealthMonitorService {
     } | null {
         if (this.metricsHistory.length === 0) return null;
 
-        const totals = this.metricsHistory.reduce(
-            (acc, m) => ({
-                cpu: acc.cpu + m.cpu.usage,
-                memory: acc.memory + m.memory.percentage,
-                heap: acc.heap + m.memory.heapUsed,
+        const sums = this.metricsHistory.reduce(
+            (totals, metrics) => ({
+                cpu: totals.cpu + metrics.cpu.usage,
+                memory: totals.memory + metrics.memory.percentage,
+                heap: totals.heap + metrics.memory.heapUsed,
             }),
             { cpu: 0, memory: 0, heap: 0 }
         );
@@ -735,9 +735,9 @@ export class HealthMonitorService {
         const count = this.metricsHistory.length;
 
         return {
-            avgCpuUsage: totals.cpu / count,
-            avgMemoryPercentage: totals.memory / count,
-            avgHeapUsed: totals.heap / count,
+            avgCpuUsage: sums.cpu / count,
+            avgMemoryPercentage: sums.memory / count,
+            avgHeapUsed: sums.heap / count,
         };
     }
 }

@@ -13,7 +13,7 @@ import { TracerService } from '../services/TracerService';
 import { LoggerService } from '../../../shared/services/LoggerService';
 import { ServiceContainer } from '../../../shared/services/ServiceContainer';
 import { TracerUser } from '../models/AlbionTypes';
-import { tracerI18n, TracerTranslator } from '../i18n';
+import { tracerTranslations, TracerTranslator } from '../translations';
 import {
     buildUpdateAllProgressEmbed,
     buildUpdateAllStartEmbed,
@@ -38,7 +38,7 @@ import {
  */
 export default class UpdateAllCommand extends BaseCommand {
     public name = 'updateall';
-    public description = tracerI18n.default('commands.updateall.description');
+    public description = tracerTranslations.defaultText('commands.updateall.description');
 
     private readonly tracerService: TracerService;
     private readonly syncService: CharacterSyncService;
@@ -69,7 +69,7 @@ export default class UpdateAllCommand extends BaseCommand {
         return new SlashCommandBuilder()
             .setName(this.name)
             .setDescription(this.description)
-            .setDescriptionLocalizations(tracerI18n.localizations('commands.updateall.description'))
+            .setDescriptionLocalizations(tracerTranslations.discordLocalizations('commands.updateall.description'))
             .setDefaultMemberPermissions(PermissionFlagsBits.ManageNicknames);
     }
 
@@ -83,11 +83,11 @@ export default class UpdateAllCommand extends BaseCommand {
      * - Erreur critique : message d'erreur + log pour investigation
      */
     public async execute(interaction: ChatInputCommandInteraction): Promise<void> {
-        const t = tracerI18n.for(await this.resolveLocale(interaction));
+        const translate = tracerTranslations.forLocale(await this.resolveLocale(interaction));
 
         if (!interaction.memberPermissions?.has(PermissionFlagsBits.ManageNicknames)) {
             await interaction.reply({
-                content: t('updateAll.noPermission'),
+                content: translate('updateAll.noPermission'),
                 flags: MessageFlagsBitField.Flags.Ephemeral,
             });
             return;
@@ -95,7 +95,7 @@ export default class UpdateAllCommand extends BaseCommand {
 
         if (!interaction.guild) {
             await interaction.reply({
-                content: t('updateAll.guildOnly'),
+                content: translate('updateAll.guildOnly'),
                 flags: MessageFlagsBitField.Flags.Ephemeral,
             });
             return;
@@ -134,32 +134,32 @@ export default class UpdateAllCommand extends BaseCommand {
                 const userCharacters = charactersByDiscordId.get(member.id);
 
                 if (userCharacters && userCharacters.length > 0) {
-                    const mainCharacter = userCharacters.find(u => u.is_main === 1) || userCharacters[0];
+                    const mainCharacter = userCharacters.find(character => character.is_main === 1) || userCharacters[0];
                     membersToUpdate.push({ member, dbUser: mainCharacter });
                 }
             }
 
             if (membersToUpdate.length === 0) {
-                await interaction.editReply({ content: t('updateAll.noMembers') });
+                await interaction.editReply({ content: translate('updateAll.noMembers') });
                 return;
             }
 
-            await interaction.editReply({ embeds: [buildUpdateAllStartEmbed(t, membersToUpdate.length)] });
+            await interaction.editReply({ embeds: [buildUpdateAllStartEmbed(translate, membersToUpdate.length)] });
 
             // Récupère l'objet Message réel après le premier editReply.
             // Les appels suivants passent par message.edit() (token bot) et non
             // interaction.editReply() (token webhook expirant à 15 min).
             progressMessage = await interaction.fetchReply();
 
-            const results = await this.processBatchUpdates(t, membersToUpdate, progressMessage);
+            const results = await this.processBatchUpdates(translate, membersToUpdate, progressMessage);
 
-            await progressMessage.edit({ embeds: [buildUpdateAllSummaryEmbed(t, results)] });
+            await progressMessage.edit({ embeds: [buildUpdateAllSummaryEmbed(translate, results)] });
 
             this.logger.success(`UpdateAll terminé : ${results.success} réussites, ${results.failures} échecs`, 'tracer');
 
         } catch (error) {
             this.logger.error('Erreur lors de l\'UpdateAll', 'tracer', error);
-            await this.reportCriticalError(interaction, t, progressMessage);
+            await this.reportCriticalError(interaction, translate, progressMessage);
         }
     }
 
@@ -172,10 +172,10 @@ export default class UpdateAllCommand extends BaseCommand {
      */
     private async reportCriticalError(
         interaction: ChatInputCommandInteraction,
-        t: TracerTranslator,
+        translate: TracerTranslator,
         progressMessage: Message | null
     ): Promise<void> {
-        const content = t('updateAll.criticalError');
+        const content = translate('updateAll.criticalError');
 
         try {
             if (progressMessage) {
@@ -200,7 +200,7 @@ export default class UpdateAllCommand extends BaseCommand {
     /**
      * Traite les mises à jour par batch pour éviter de surcharger l'API Albion
      *
-     * @param t - Traductions de l'administrateur (embed de progression)
+     * @param translate - Traductions de l'administrateur (embed de progression)
      * @param membersToUpdate - Membres à mettre à jour avec leur personnage
      * @param progressMessage - Message de progression à éditer après chaque batch
      * @returns Compteurs (réussites, échecs, ignorés) et détails des échecs
@@ -211,7 +211,7 @@ export default class UpdateAllCommand extends BaseCommand {
      * - Pause de DELAY_BETWEEN_BATCHES_MS entre chaque batch (sauf le dernier)
      */
     private async processBatchUpdates(
-        t: TracerTranslator,
+        translate: TracerTranslator,
         membersToUpdate: { member: GuildMember; dbUser: TracerUser }[],
         progressMessage: Message
     ): Promise<UpdateAllResults> {
@@ -222,9 +222,9 @@ export default class UpdateAllCommand extends BaseCommand {
 
         const totalBatches = Math.ceil(membersToUpdate.length / this.BATCH_SIZE);
 
-        for (let i = 0; i < membersToUpdate.length; i += this.BATCH_SIZE) {
-            const batch = membersToUpdate.slice(i, i + this.BATCH_SIZE);
-            const currentBatch = Math.floor(i / this.BATCH_SIZE) + 1;
+        for (let batchStart = 0; batchStart < membersToUpdate.length; batchStart += this.BATCH_SIZE) {
+            const batch = membersToUpdate.slice(batchStart, batchStart + this.BATCH_SIZE);
+            const currentBatch = Math.floor(batchStart / this.BATCH_SIZE) + 1;
 
             this.logger.debug(`Traitement du batch ${currentBatch}/${totalBatches}`, 'tracer');
 
@@ -249,9 +249,9 @@ export default class UpdateAllCommand extends BaseCommand {
                 }
             });
 
-            const progressEmbed = buildUpdateAllProgressEmbed(t, {
+            const progressEmbed = buildUpdateAllProgressEmbed(translate, {
                 total: membersToUpdate.length,
-                processed: i + batch.length,
+                processed: batchStart + batch.length,
                 success: successCount,
                 skipped: skippedCount,
                 failures: failureCount,
@@ -268,7 +268,7 @@ export default class UpdateAllCommand extends BaseCommand {
                 });
             }
 
-            if (i + this.BATCH_SIZE < membersToUpdate.length) {
+            if (batchStart + this.BATCH_SIZE < membersToUpdate.length) {
                 await this.delay(this.DELAY_BETWEEN_BATCHES_MS);
             }
         }

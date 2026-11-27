@@ -7,7 +7,7 @@ import { BaseCommand } from '../../../core/BaseCommand';
 import { TracerService } from '../services/TracerService';
 import { LoggerService } from '../../../shared/services/LoggerService';
 import { ServiceContainer } from '../../../shared/services/ServiceContainer';
-import { tracerI18n } from '../i18n';
+import { tracerTranslations } from '../translations';
 import { buildVerificationNotificationEmbed, buildVerificationReportEmbed } from '../embeds';
 
 /**
@@ -26,7 +26,7 @@ import { buildVerificationNotificationEmbed, buildVerificationReportEmbed } from
  */
 export default class VerifyCommand extends BaseCommand {
     public name = 'verify';
-    public description = tracerI18n.default('commands.verify.description');
+    public description = tracerTranslations.defaultText('commands.verify.description');
 
     private readonly tracerService: TracerService;
     private readonly logger: LoggerService;
@@ -56,19 +56,19 @@ export default class VerifyCommand extends BaseCommand {
         return new SlashCommandBuilder()
             .setName(this.name)
             .setDescription(this.description)
-            .setDescriptionLocalizations(tracerI18n.localizations('commands.verify.description'))
+            .setDescriptionLocalizations(tracerTranslations.discordLocalizations('commands.verify.description'))
             .addStringOption((option) =>
                 option
                     .setName('discord_id')
-                    .setDescription(tracerI18n.default('commands.verify.options.discordId'))
-                    .setDescriptionLocalizations(tracerI18n.localizations('commands.verify.options.discordId'))
+                    .setDescription(tracerTranslations.defaultText('commands.verify.options.discordId'))
+                    .setDescriptionLocalizations(tracerTranslations.discordLocalizations('commands.verify.options.discordId'))
                     .setRequired(true)
             )
             .addStringOption((option) =>
                 option
                     .setName('personnage')
-                    .setDescription(tracerI18n.default('commands.verify.options.character'))
-                    .setDescriptionLocalizations(tracerI18n.localizations('commands.verify.options.character'))
+                    .setDescription(tracerTranslations.defaultText('commands.verify.options.character'))
+                    .setDescriptionLocalizations(tracerTranslations.discordLocalizations('commands.verify.options.character'))
                     .setRequired(true)
             ) as SlashCommandBuilder;
     }
@@ -79,11 +79,11 @@ export default class VerifyCommand extends BaseCommand {
      * @param interaction - L'interaction Discord de la commande slash
      */
     public async execute(interaction: ChatInputCommandInteraction): Promise<void> {
-        const t = tracerI18n.for(await this.resolveLocale(interaction));
+        const translate = tracerTranslations.forLocale(await this.resolveLocale(interaction));
 
         if (interaction.user.id !== this.OWNER_ID) {
             await interaction.reply({
-                content: t('verify.noPermission'),
+                content: translate('verify.noPermission'),
                 flags: MessageFlagsBitField.Flags.Ephemeral,
             });
             return;
@@ -98,7 +98,7 @@ export default class VerifyCommand extends BaseCommand {
             const userCharacters = await this.tracerService.getRegisteredUsers(targetUserId);
 
             if (userCharacters.length === 0) {
-                await interaction.editReply({ content: t('verify.noCharacters', { userId: targetUserId }) });
+                await interaction.editReply({ content: translate('verify.noCharacters', { userId: targetUserId }) });
                 return;
             }
 
@@ -108,7 +108,7 @@ export default class VerifyCommand extends BaseCommand {
 
             if (!character) {
                 await interaction.editReply({
-                    content: t('verify.characterNotLinked', {
+                    content: translate('verify.characterNotLinked', {
                         name: characterName,
                         userId: targetUserId,
                         characters: userCharacters.map((char) => `• ${char.albion_name}`).join('\n'),
@@ -119,7 +119,7 @@ export default class VerifyCommand extends BaseCommand {
 
             if (character.is_verified === 1) {
                 await interaction.editReply({
-                    content: t('verify.alreadyVerified', { name: character.albion_name, userId: targetUserId }),
+                    content: translate('verify.alreadyVerified', { name: character.albion_name, userId: targetUserId }),
                 });
                 return;
             }
@@ -130,7 +130,7 @@ export default class VerifyCommand extends BaseCommand {
             await this.tracerService.verifyCharacter(targetUserId, character.albion_id);
 
             await interaction.editReply({
-                embeds: [buildVerificationReportEmbed(t, targetUserId, character, duplicateClaims, {
+                embeds: [buildVerificationReportEmbed(translate, targetUserId, character, duplicateClaims, {
                     tag: interaction.user.tag,
                     avatarURL: interaction.user.displayAvatarURL(),
                 })],
@@ -139,11 +139,11 @@ export default class VerifyCommand extends BaseCommand {
             try {
                 const targetUser = await interaction.client.users.fetch(targetUserId);
                 // Le MP est lu par l'utilisateur vérifié : sa langue, pas celle de l'administrateur
-                const targetT = tracerI18n.for(
+                const translateForTarget = tracerTranslations.forLocale(
                     await ServiceContainer.getInstance().locale.resolveForUser(targetUserId)
                 );
 
-                await targetUser.send({ embeds: [buildVerificationNotificationEmbed(targetT, character)] });
+                await targetUser.send({ embeds: [buildVerificationNotificationEmbed(translateForTarget, character)] });
 
                 this.logger.success(
                     `Notification de vérification envoyée en DM à l'utilisateur ${targetUserId}`,
@@ -163,7 +163,7 @@ export default class VerifyCommand extends BaseCommand {
             );
         } catch (error) {
             this.logger.error('Erreur lors de la vérification du personnage', 'tracer', error);
-            await interaction.editReply({ content: t('verify.error') });
+            await interaction.editReply({ content: translate('verify.error') });
         }
     }
 }

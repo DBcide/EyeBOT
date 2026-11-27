@@ -1,10 +1,10 @@
-import { TracerTranslator } from '../i18n';
+import { TracerTranslator } from '../translations';
 
 /**
  * Convertit une erreur de l'API Albion en message utilisateur traduit
  *
  * @param error - L'erreur capturée depuis AlbionService (peut être null/undefined)
- * @param t - Traductions dans la langue de l'utilisateur
+ * @param translate - Traductions dans la langue de l'utilisateur
  * @returns Message prêt à afficher (jamais de throw)
  *
  * @remarks
@@ -20,28 +20,28 @@ import { TracerTranslator } from '../i18n';
  * try {
  *     await albionService.searchPlayer('PlayerName');
  * } catch (error) {
- *     await interaction.editReply(getAlbionApiErrorMessage(error, t));
+ *     await interaction.editReply(getAlbionApiErrorMessage(error, translate));
  * }
  * ```
  */
-export function getAlbionApiErrorMessage(error: any, t: TracerTranslator): string {
+export function getAlbionApiErrorMessage(error: any, translate: TracerTranslator): string {
     if (!error?.message) {
-        return t('errors.albion.unknown');
+        return translate('errors.albion.unknown');
     }
 
     const message = String(error.message).toLowerCase();
 
     if (message.includes('timeout')) {
-        return t('errors.albion.timeout');
+        return translate('errors.albion.timeout');
     }
 
     if (message.includes('rate limit')) {
-        return t('errors.albion.rateLimit');
+        return translate('errors.albion.rateLimit');
     }
 
     if (message.includes('fetch') || message.includes('network')) {
-        return t('errors.albion.network');
+        return translate('errors.albion.network');
     }
 
-    return t('errors.albion.generic');
+    return translate('errors.albion.generic');
 }

@@ -1,8 +1,8 @@
 import { Locale as DiscordLocale } from 'discord.js';
 import {
-    I18n,
-    commonI18n,
-    createFeatureI18n,
+    TranslationCatalog,
+    commonTranslations,
+    createFeatureTranslations,
     fromDiscordLocale,
     isSupportedLocale,
     DEFAULT_LOCALE,
@@ -26,81 +26,81 @@ const catalogs = {
     },
 } as any;
 
-describe('I18n', () => {
-    const i18n = new I18n<typeof catalogs.fr>(catalogs);
+describe('TranslationCatalog', () => {
+    const i18n = new TranslationCatalog<typeof catalogs.fr>(catalogs);
 
-    describe('for(locale)', () => {
+    describe('forLocale(locale)', () => {
         it('[positif] traduit une clé simple dans la langue demandée', () => {
-            expect(i18n.for('fr')('greeting', { name: 'DBcide' })).toBe('Bonjour DBcide');
-            expect(i18n.for('en')('greeting', { name: 'DBcide' })).toBe('Hello DBcide');
+            expect(i18n.forLocale('fr')('greeting', { name: 'DBcide' })).toBe('Bonjour DBcide');
+            expect(i18n.forLocale('en')('greeting', { name: 'DBcide' })).toBe('Hello DBcide');
         });
 
         it('[positif] lit une clé imbriquée ("a.b.c")', () => {
-            expect(i18n.for('en')('nested.deep.key')).toBe('Deep');
+            expect(i18n.forLocale('en')('nested.deep.key')).toBe('Deep');
         });
 
         it('[positif] joint les tableaux avec des retours à la ligne', () => {
-            expect(i18n.for('fr')('lines', { value: 42 })).toBe('Ligne 1\nLigne 2 : 42');
+            expect(i18n.forLocale('fr')('lines', { value: 42 })).toBe('Ligne 1\nLigne 2 : 42');
         });
 
         it('[extrême] retombe sur la langue par défaut si la clé manque dans la langue demandée', () => {
-            expect(i18n.for('en')('onlyFr')).toBe('Seulement en français');
+            expect(i18n.forLocale('en')('onlyFr')).toBe('Seulement en français');
         });
 
         it('[extrême] laisse visible un placeholder sans paramètre', () => {
-            expect(i18n.for('fr')('greeting')).toBe('Bonjour {name}');
-            expect(i18n.for('fr')('greeting', {})).toBe('Bonjour {name}');
+            expect(i18n.forLocale('fr')('greeting')).toBe('Bonjour {name}');
+            expect(i18n.forLocale('fr')('greeting', {})).toBe('Bonjour {name}');
         });
 
         it('[extrême] ne réinterprète pas un paramètre qui contient lui-même un placeholder', () => {
-            expect(i18n.for('fr')('greeting', { name: '{name}' })).toBe('Bonjour {name}');
+            expect(i18n.forLocale('fr')('greeting', { name: '{name}' })).toBe('Bonjour {name}');
         });
 
         it('[extrême] retourne la clé brute et logue un avertissement si elle n\'existe nulle part', () => {
             const warn = jest.spyOn(ServiceContainer.getInstance().logger, 'warn').mockImplementation(() => {});
 
-            expect(i18n.for('en')('inconnue.cle' as any)).toBe('inconnue.cle');
+            expect(i18n.forLocale('en')('inconnue.cle' as any)).toBe('inconnue.cle');
             expect(warn).toHaveBeenCalledWith(expect.stringContaining('inconnue.cle'), 'i18n');
         });
 
         it('[extrême] une clé qui désigne un groupe (pas un texte) est traitée comme introuvable', () => {
             jest.spyOn(ServiceContainer.getInstance().logger, 'warn').mockImplementation(() => {});
 
-            expect(i18n.for('fr')('nested' as any)).toBe('nested');
-            expect(i18n.for('fr')('greeting.trop.profond' as any)).toBe('greeting.trop.profond');
+            expect(i18n.forLocale('fr')('nested' as any)).toBe('nested');
+            expect(i18n.forLocale('fr')('greeting.trop.profond' as any)).toBe('greeting.trop.profond');
         });
     });
 
     describe('default()', () => {
         it('[positif] traduit dans la langue par défaut', () => {
-            expect(i18n.default('greeting', { name: 'X' })).toBe('Bonjour X');
+            expect(i18n.defaultText('greeting', { name: 'X' })).toBe('Bonjour X');
         });
     });
 
     describe('localizations()', () => {
         it('[positif] génère une entrée par locale Discord des langues non par défaut', () => {
-            expect(i18n.localizations('nested.deep.key')).toEqual({
+            expect(i18n.discordLocalizations('nested.deep.key')).toEqual({
                 [DiscordLocale.EnglishUS]: 'Deep',
                 [DiscordLocale.EnglishGB]: 'Deep',
             });
         });
 
         it('[extrême] n\'inclut pas la langue par défaut (déjà la description principale)', () => {
-            expect(i18n.localizations('greeting')).not.toHaveProperty(DiscordLocale.French);
+            expect(i18n.discordLocalizations('greeting')).not.toHaveProperty(DiscordLocale.French);
         });
     });
 });
 
 describe('catalogues communs', () => {
-    it('[positif] commonI18n traduit les clés common.*', () => {
-        expect(commonI18n.for('en')('common.menu.timeout')).toBe('⏱️ Time is up. Please run the command again.');
+    it('[positif] commonTranslations traduit les clés common.*', () => {
+        expect(commonTranslations.forLocale('en')('common.menu.timeout')).toBe('⏱️ Time is up. Please run the command again.');
     });
 
-    it('[positif] createFeatureI18n donne accès aux clés de la feature et aux clés communes', () => {
-        const feature = createFeatureI18n({ fr: { hello: 'Salut' }, en: { hello: 'Hi' } });
+    it('[positif] createFeatureTranslations donne accès aux clés de la feature et aux clés communes', () => {
+        const feature = createFeatureTranslations({ fr: { hello: 'Salut' }, en: { hello: 'Hi' } });
 
-        expect(feature.for('en')('hello')).toBe('Hi');
-        expect(feature.for('fr')('common.menu.notForYou')).toBe('❌ Ce menu ne vous est pas destiné.');
+        expect(feature.forLocale('en')('hello')).toBe('Hi');
+        expect(feature.forLocale('fr')('common.menu.notForYou')).toBe('❌ Ce menu ne vous est pas destiné.');
     });
 });
 

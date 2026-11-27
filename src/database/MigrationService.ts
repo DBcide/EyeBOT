@@ -308,7 +308,7 @@ export class MigrationService {
             return;
         }
 
-        const migration = migrations.find(m => m.name === lastMigration.name);
+        const migration = migrations.find(candidate => candidate.name === lastMigration.name);
 
         if (!migration) {
             // Logué une seule fois par le script appelant
@@ -401,8 +401,8 @@ export class MigrationService {
         }
 
         this.logger.info(`Migrations exécutées (${migrations.length}):`, 'database');
-        migrations.forEach((m, i) => {
-            this.logger.info(`   ${i + 1}. ${m.name} - ${m.executed_at}`, 'database');
+        migrations.forEach((executedMigration, index) => {
+            this.logger.info(`   ${index + 1}. ${executedMigration.name} - ${executedMigration.executed_at}`, 'database');
         });
     }
 }

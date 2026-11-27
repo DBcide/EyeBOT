@@ -13,7 +13,7 @@ import { ServiceContainer } from '../../../shared/services/ServiceContainer';
 import { AlbionPlayer, TracerUser } from '../models/AlbionTypes';
 import { updateMemberNickname } from '../utils/DiscordUtils';
 import { getAlbionApiErrorMessage } from '../utils/ErrorHandlers';
-import { tracerI18n, TracerTranslator } from '../i18n';
+import { tracerTranslations, TracerTranslator } from '../translations';
 import { buildPlayerSelectMenu } from '../components/SelectMenus';
 import { CharacterUpdateHandler } from '../handlers/CharacterUpdateHandler';
 import { CharacterSyncService } from '../services/CharacterSyncService';
@@ -65,7 +65,7 @@ interface RegistrationMessages {
  */
 export default class RegisterCommand extends BaseCommand {
     public name = 'register';
-    public description = tracerI18n.default('commands.register.description');
+    public description = tracerTranslations.defaultText('commands.register.description');
 
     private readonly albionService: AlbionService;
     private readonly tracerService: TracerService;
@@ -100,12 +100,12 @@ export default class RegisterCommand extends BaseCommand {
         return new SlashCommandBuilder()
             .setName(this.name)
             .setDescription(this.description)
-            .setDescriptionLocalizations(tracerI18n.localizations('commands.register.description'))
+            .setDescriptionLocalizations(tracerTranslations.discordLocalizations('commands.register.description'))
             .addStringOption((option) =>
                 option
                     .setName('pseudo')
-                    .setDescription(tracerI18n.default('commands.register.options.pseudo'))
-                    .setDescriptionLocalizations(tracerI18n.localizations('commands.register.options.pseudo'))
+                    .setDescription(tracerTranslations.defaultText('commands.register.options.pseudo'))
+                    .setDescriptionLocalizations(tracerTranslations.discordLocalizations('commands.register.options.pseudo'))
                     .setRequired(true)
             ) as SlashCommandBuilder;
     }
@@ -124,7 +124,7 @@ export default class RegisterCommand extends BaseCommand {
 
         await interaction.deferReply({ flags: MessageFlagsBitField.Flags.Ephemeral });
 
-        const t = tracerI18n.for(await this.resolveLocale(interaction));
+        const translate = tracerTranslations.forLocale(await this.resolveLocale(interaction));
 
         try {
             this.logger.debug(`Recherche du joueur: ${pseudo}`, 'tracer');
@@ -132,19 +132,19 @@ export default class RegisterCommand extends BaseCommand {
             const players = await this.albionService.searchPlayer(pseudo);
 
             if (players.length === 0) {
-                await interaction.editReply({ content: t('register.playerNotFound', { pseudo }) });
+                await interaction.editReply({ content: translate('register.playerNotFound', { pseudo }) });
                 return;
             }
 
             if (players.length === 1) {
-                await this.handlePlayerRegistration(interaction, t, players[0]);
+                await this.handlePlayerRegistration(interaction, translate, players[0]);
                 return;
             }
 
-            await this.showPlayerSelection(interaction, t, players);
+            await this.showPlayerSelection(interaction, translate, players);
         } catch (error: any) {
             this.logger.error('Erreur lors de l\'enregistrement', 'tracer', error);
-            await interaction.editReply({ content: getAlbionApiErrorMessage(error, t) });
+            await interaction.editReply({ content: getAlbionApiErrorMessage(error, translate) });
         }
     }
 
@@ -152,7 +152,7 @@ export default class RegisterCommand extends BaseCommand {
      * Gère l'enregistrement d'un joueur après vérifications de conflits
      *
      * @param interaction - L'interaction Discord
-     * @param t - Traductions dans la langue de l'utilisateur
+     * @param translate - Traductions dans la langue de l'utilisateur
      * @param player - Le personnage Albion sélectionné
      *
      * @remarks
@@ -164,13 +164,13 @@ export default class RegisterCommand extends BaseCommand {
      */
     private async handlePlayerRegistration(
         interaction: ChatInputCommandInteraction,
-        t: TracerTranslator,
+        translate: TracerTranslator,
         player: AlbionPlayer
     ): Promise<void> {
         const verifiedOwner = await this.tracerService.isCharacterVerifiedByOther(player.Id, interaction.user.id);
 
         if (verifiedOwner) {
-            const embed = buildCharacterAlreadyVerifiedEmbed(t, verifiedOwner, fromAlbionPlayer(player));
+            const embed = buildCharacterAlreadyVerifiedEmbed(translate, verifiedOwner, fromAlbionPlayer(player));
             await interaction.editReply({ embeds: [embed], components: [] });
             return;
         }
@@ -184,7 +184,7 @@ export default class RegisterCommand extends BaseCommand {
             // Déjà lié (ex: retour sur un serveur quitté, ou autre serveur utilisant le bot) :
             // on exécute directement le flux de /update au lieu d'un message "déjà enregistré"
             // qui n'indiquait pas quoi faire pour être renommé sur ce serveur
-            await this.updateHandler.updateAndReply(interaction, t, existingRegistration);
+            await this.updateHandler.updateAndReply(interaction, translate, existingRegistration);
             return;
         }
 
@@ -192,18 +192,18 @@ export default class RegisterCommand extends BaseCommand {
 
         if (unverifiedClaimsCount > 0) {
             const allClaims = await this.tracerService.getAllClaimsForCharacter(player.Id);
-            await this.registerPlayerWithWarning(interaction, t, player, allClaims);
+            await this.registerPlayerWithWarning(interaction, translate, player, allClaims);
             return;
         }
 
-        await this.registerPlayer(interaction, t, player);
+        await this.registerPlayer(interaction, translate, player);
     }
 
     /**
      * Affiche un menu déroulant quand plusieurs joueurs correspondent à la recherche
      *
      * @param interaction - L'interaction Discord
-     * @param t - Traductions dans la langue de l'utilisateur
+     * @param translate - Traductions dans la langue de l'utilisateur
      * @param players - Liste des joueurs trouvés via l'API Albion
      *
      * @remarks
@@ -214,14 +214,14 @@ export default class RegisterCommand extends BaseCommand {
      */
     private async showPlayerSelection(
         interaction: ChatInputCommandInteraction,
-        t: TracerTranslator,
+        translate: TracerTranslator,
         players: AlbionPlayer[]
     ): Promise<void> {
         const views = players.map(fromAlbionPlayer);
 
         const response = await interaction.editReply({
-            embeds: [buildPlayerSelectionEmbed(t, views)],
-            components: [buildPlayerSelectMenu(t, views)],
+            embeds: [buildPlayerSelectionEmbed(translate, views)],
+            components: [buildPlayerSelectMenu(translate, views)],
         });
 
         const collector = response.createMessageComponentCollector({
@@ -233,11 +233,11 @@ export default class RegisterCommand extends BaseCommand {
             try {
                 if (selectInteraction.user.id !== interaction.user.id) {
                     // Réponse dans la langue de celui qui a cliqué, pas de l'auteur de la commande
-                    const clickerT = tracerI18n.for(
+                    const translateForClicker = tracerTranslations.forLocale(
                         await ServiceContainer.getInstance().locale.resolveForInteraction(selectInteraction)
                     );
                     await selectInteraction.reply({
-                        content: clickerT('common.menu.notForYou'),
+                        content: translateForClicker('common.menu.notForYou'),
                         flags: MessageFlagsBitField.Flags.Ephemeral,
                     });
                     return;
@@ -245,11 +245,11 @@ export default class RegisterCommand extends BaseCommand {
 
                 collector.stop('selected');
 
-                const selectedPlayer = players.find((p) => p.Id === selectInteraction.values[0]);
+                const selectedPlayer = players.find((player) => player.Id === selectInteraction.values[0]);
 
                 if (!selectedPlayer) {
                     await selectInteraction.update({
-                        content: t('register.selectedPlayerNotFound'),
+                        content: translate('register.selectedPlayerNotFound'),
                         embeds: [],
                         components: [],
                     });
@@ -257,16 +257,16 @@ export default class RegisterCommand extends BaseCommand {
                 }
 
                 await selectInteraction.deferUpdate();
-                await this.handlePlayerRegistration(interaction, t, selectedPlayer);
+                await this.handlePlayerRegistration(interaction, translate, selectedPlayer);
             } catch (error) {
                 this.logger.error('Erreur lors de la sélection du joueur', 'tracer', error);
-                await this.safeEditReply(interaction, getAlbionApiErrorMessage(error, t));
+                await this.safeEditReply(interaction, getAlbionApiErrorMessage(error, translate));
             }
         });
 
         collector.on('end', async (_collected, reason) => {
             if (reason === 'time') {
-                await this.safeEditReply(interaction, t('common.menu.timeout'));
+                await this.safeEditReply(interaction, translate('common.menu.timeout'));
             }
         });
     }
@@ -276,13 +276,13 @@ export default class RegisterCommand extends BaseCommand {
      */
     private async registerPlayer(
         interaction: ChatInputCommandInteraction,
-        t: TracerTranslator,
+        translate: TracerTranslator,
         player: AlbionPlayer
     ): Promise<void> {
-        await this.completeRegistration(interaction, t, player, {
-            mainEmbed: buildRegistrationSuccessEmbed(t, interaction.user.id, fromAlbionPlayer(player)),
-            verificationEmbed: buildVerificationInstructionsEmbed(t, player.Name, interaction.user.id),
-            confirmationMessage: t('register.success'),
+        await this.completeRegistration(interaction, translate, player, {
+            mainEmbed: buildRegistrationSuccessEmbed(translate, interaction.user.id, fromAlbionPlayer(player)),
+            verificationEmbed: buildVerificationInstructionsEmbed(translate, player.Name, interaction.user.id),
+            confirmationMessage: translate('register.success'),
             errorLogMessage: 'Erreur lors de l\'enregistrement final',
         });
     }
@@ -298,19 +298,19 @@ export default class RegisterCommand extends BaseCommand {
      */
     private async registerPlayerWithWarning(
         interaction: ChatInputCommandInteraction,
-        t: TracerTranslator,
+        translate: TracerTranslator,
         player: AlbionPlayer,
         existingClaims: TracerUser[]
     ): Promise<void> {
-        await this.completeRegistration(interaction, t, player, {
+        await this.completeRegistration(interaction, translate, player, {
             mainEmbed: buildRegistrationWithWarningEmbed(
-                t,
+                translate,
                 interaction.user.id,
                 fromAlbionPlayer(player),
                 existingClaims.map(claim => claim.discord_id)
             ),
-            verificationEmbed: buildVerificationWarningEmbed(t, interaction.user.id),
-            confirmationMessage: t('register.successWithWarning'),
+            verificationEmbed: buildVerificationWarningEmbed(translate, interaction.user.id),
+            confirmationMessage: translate('register.successWithWarning'),
             errorLogMessage: 'Erreur lors de l\'enregistrement avec avertissement',
         });
     }
@@ -326,7 +326,7 @@ export default class RegisterCommand extends BaseCommand {
      */
     private async completeRegistration(
         interaction: ChatInputCommandInteraction,
-        t: TracerTranslator,
+        translate: TracerTranslator,
         player: AlbionPlayer,
         messages: RegistrationMessages
     ): Promise<void> {
@@ -342,7 +342,7 @@ export default class RegisterCommand extends BaseCommand {
             );
 
             const allCharacters = await this.tracerService.getRegisteredUsers(interaction.user.id);
-            const summaryEmbed = buildCharactersSummaryEmbed(t, allCharacters.map(fromTracerUser));
+            const summaryEmbed = buildCharactersSummaryEmbed(translate, allCharacters.map(fromTracerUser));
 
             await interaction.editReply({
                 content: messages.confirmationMessage,
@@ -368,14 +368,14 @@ export default class RegisterCommand extends BaseCommand {
 
             if (error.message?.startsWith('CHARACTER_VERIFIED_BY_OTHER:')) {
                 const verifiedOwner = error.message.split(':')[1];
-                const embed = buildCharacterAlreadyVerifiedEmbed(t, verifiedOwner);
+                const embed = buildCharacterAlreadyVerifiedEmbed(translate, verifiedOwner);
 
                 await interaction.editReply({ content: null, embeds: [embed], components: [] });
                 return;
             }
 
             await interaction.editReply({
-                content: t('register.error'),
+                content: translate('register.error'),
                 embeds: [],
                 components: [],
             });

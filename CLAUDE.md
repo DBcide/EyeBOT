@@ -73,7 +73,7 @@ features/
       ├── models/          # TypeScript interfaces/types
       ├── services/        # Business logic
       ├── utils/           # Feature-specific utilities
-      └── i18n.ts          # Typed translation catalog of the feature
+      └── translations.ts  # Typed translation catalog of the feature (e.g. `tracerTranslations`)
 ```
 
 **Current features:**
@@ -87,8 +87,11 @@ User-facing texts never live in code: they are in `locales/<lang>.json` files, p
 Only the language chosen by each user is stored in DB (`user_preferences` table).
 
 - **locales.ts**: `LOCALES` (supported languages + matching Discord locales), `DEFAULT_LOCALE` (`fr`)
-- **I18n.ts**: `I18n<T>` class — `for(locale)` returns `t(key, params)`, `default(key)`, `localizations(key)`
-- **index.ts**: common catalog (`common.*` keys) and `createFeatureI18n()` helper
+- **TranslationCatalog.ts**: `TranslationCatalog<T>` class
+  - `forLocale(locale)` → returns a `translate(key, params)` function bound to that language
+  - `defaultText(key)` → text in the default language (slash command descriptions)
+  - `discordLocalizations(key)` → `{ 'en-US': …, 'en-GB': … }` for `setDescriptionLocalizations()`
+- **index.ts**: common catalog (`commonTranslations`, `common.*` keys) and `createFeatureTranslations()` helper
 - **LocaleService** (`services.locale`): resolves the language — `/language` preference → Discord client
   locale (`interaction.locale`) → `DEFAULT_LOCALE`. Cached in memory, never throws.
 
@@ -98,13 +101,15 @@ Rules:
   or a missing key in a JSON file is a compile error
 - Placeholders use `{name}`; a JSON array value is joined with `\n` (one line per element)
 - Logs stay in French (developer-facing), only user-facing texts are translated
+- **Naming**: the translation function is always called `translate` (never `t`); when two languages are
+  involved in the same function, name them by recipient (`translateForClicker`, `translateForTarget`)
 
 **Adding a language**: add an entry to `LOCALES`, add `<code>.json` in `shared/i18n/locales/` and in
 each feature's `locales/`, run `npm run build` (fix reported missing keys) then `npm run register`.
 
 ### Embeds and components
 
-- Embeds are built by pure functions in `features/<feature>/embeds/`: `build<Name>Embed(t, data)` → `EmbedBuilder`
+- Embeds are built by pure functions in `features/<feature>/embeds/`: `build<Name>Embed(translate, data)` → `EmbedBuilder`
   (no DB/API access, no business logic). Inputs use view types (`CharacterView`) built by `embeds/mappers.ts`.
 - Select menus follow the same pattern in `components/`.
 - Colors come from `shared/embeds/EmbedColors.ts`; helpers (`truncateField`, `discordDate`) from `shared/embeds/EmbedUtils.ts`.
@@ -199,18 +204,18 @@ Example structure:
 ```typescript
 export default class MyCommand extends BaseCommand {
     public name = 'mycommand';
-    public description = myI18n.default('commands.mycommand.description');
+    public description = myTranslations.defaultText('commands.mycommand.description');
 
     public buildCommand(): SlashCommandBuilder {
         return new SlashCommandBuilder()
             .setName(this.name)
             .setDescription(this.description)
-            .setDescriptionLocalizations(myI18n.localizations('commands.mycommand.description'));
+            .setDescriptionLocalizations(myTranslations.discordLocalizations('commands.mycommand.description'));
     }
 
     public async execute(interaction: ChatInputCommandInteraction): Promise<void> {
-        const t = myI18n.for(await this.resolveLocale(interaction));
-        await interaction.reply({ embeds: [buildMyEmbed(t, data)] });
+        const translate = myTranslations.forLocale(await this.resolveLocale(interaction));
+        await interaction.reply({ embeds: [buildMyEmbed(translate, data)] });
     }
 }
 ```
@@ -306,7 +311,7 @@ tests/
 │       └── utils/           # DiscordUtils, ErrorHandlers, GuildUtils
 ├── shared/
 │   ├── embeds/              # EmbedUtils
-│   ├── i18n/                # I18n engine, locales, common catalog
+│   ├── i18n/                # TranslationCatalog, locales, common catalog
 │   └── services/            # DatabaseService, DatabaseLoggingService, LocaleService, LoggerService
 └── setup.ts                 # Global setup: no DB lookup for the user language (defaults to fr)
 ```
@@ -426,6 +431,11 @@ if (response.ok) { debug(...) } else { warn(...) }
     this.logger.warn(`Could not send DM: ${errorMessage}`);
 }
 ```
+
+**Never use the `@/` path alias in `src/`** — it only exists for Jest (`tsconfig` "paths" are not rewritten by `tsc`).
+In `src/`, always use relative imports: an `@/` import compiles but crashes at runtime with
+`Cannot find module '@/...'` and Bot.ts silently skips the command. IDEs (WebStorm "optimize imports") may
+add it automatically. `tests/architecture.test.ts` fails the build if it happens.
 
 **Keep function nesting ≤ 4 levels deep** — extract callbacks into named functions.
 

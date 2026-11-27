@@ -177,8 +177,8 @@ export abstract class BaseCommand {
      *
      * @example
      * ```typescript
-     * const t = tracerI18n.for(await this.resolveLocale(interaction));
-     * await interaction.editReply(t('register.error'));
+     * const translate = tracerTranslations.forLocale(await this.resolveLocale(interaction));
+     * await interaction.editReply(translate('register.error'));
      * ```
      */
     protected resolveLocale(interaction: ChatInputCommandInteraction): Promise<Locale> {

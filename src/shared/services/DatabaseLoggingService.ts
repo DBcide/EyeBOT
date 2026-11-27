@@ -492,16 +492,20 @@ export class DatabaseLoggingService {
      */
     public async cleanOldLogs(daysToKeep: number = 90): Promise<void> {
         try {
-            const tables = ['command_logs', 'system_logs', 'event_logs'];
-            const dateColumns = ['executed_at', 'created_at', 'created_at'];
+            // Chaque table de logs avec sa colonne de date (command_logs n'a pas de created_at)
+            const logTables = [
+                { table: 'command_logs', dateColumn: 'executed_at' },
+                { table: 'system_logs', dateColumn: 'created_at' },
+                { table: 'event_logs', dateColumn: 'created_at' },
+            ];
 
-            for (let i = 0; i < tables.length; i++) {
+            for (const { table, dateColumn } of logTables) {
                 const sql = `
-                    DELETE FROM ${tables[i]}
-                    WHERE ${dateColumns[i]} < DATE_SUB(NOW(), INTERVAL ? DAY)
+                    DELETE FROM ${table}
+                    WHERE ${dateColumn} < DATE_SUB(NOW(), INTERVAL ? DAY)
                 `;
                 const affectedRows = await this.database.execute(sql, [daysToKeep]);
-                this.logger.info(`${affectedRows} anciens logs supprimés de ${tables[i]}`, 'database');
+                this.logger.info(`${affectedRows} anciens logs supprimés de ${table}`, 'database');
             }
         } catch (error) {
             this.logger.error('Erreur lors du nettoyage des vieux logs', 'database', error);

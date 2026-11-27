@@ -9,7 +9,7 @@ import { TracerService } from '../services/TracerService';
 import { LoggerService } from '../../../shared/services/LoggerService';
 import { ServiceContainer } from '../../../shared/services/ServiceContainer';
 import { TracerUser } from '../models/AlbionTypes';
-import { tracerI18n, TracerTranslator } from '../i18n';
+import { tracerTranslations, TracerTranslator } from '../translations';
 import { buildCharacterSelectMenu } from '../components/SelectMenus';
 import { buildCharacterSelectionEmbed, fromTracerUser } from '../embeds';
 import { CharacterUpdateHandler } from '../handlers/CharacterUpdateHandler';
@@ -32,7 +32,7 @@ import { AlbionService } from '../services/AlbionService';
  */
 export default class UpdateCommand extends BaseCommand {
     public name = 'update';
-    public description = tracerI18n.default('commands.update.description');
+    public description = tracerTranslations.defaultText('commands.update.description');
 
     private readonly tracerService: TracerService;
     private readonly updateHandler: CharacterUpdateHandler;
@@ -60,7 +60,7 @@ export default class UpdateCommand extends BaseCommand {
         return new SlashCommandBuilder()
             .setName(this.name)
             .setDescription(this.description)
-            .setDescriptionLocalizations(tracerI18n.localizations('commands.update.description'));
+            .setDescriptionLocalizations(tracerTranslations.discordLocalizations('commands.update.description'));
     }
 
     /**
@@ -71,25 +71,25 @@ export default class UpdateCommand extends BaseCommand {
     public async execute(interaction: ChatInputCommandInteraction): Promise<void> {
         await interaction.deferReply({ flags: MessageFlagsBitField.Flags.Ephemeral });
 
-        const t = tracerI18n.for(await this.resolveLocale(interaction));
+        const translate = tracerTranslations.forLocale(await this.resolveLocale(interaction));
 
         try {
             const characters = await this.tracerService.getRegisteredUsers(interaction.user.id);
 
             if (characters.length === 0) {
-                await interaction.editReply({ content: t('update.noCharacters') });
+                await interaction.editReply({ content: translate('update.noCharacters') });
                 return;
             }
 
             if (characters.length === 1) {
-                await this.updateCharacter(interaction, t, characters[0]);
+                await this.updateCharacter(interaction, translate, characters[0]);
                 return;
             }
 
-            await this.showCharacterSelection(interaction, t, characters);
+            await this.showCharacterSelection(interaction, translate, characters);
         } catch (error) {
             this.logger.error('Erreur lors de la mise à jour', 'tracer', error);
-            await interaction.editReply({ content: t('update.error') });
+            await interaction.editReply({ content: translate('update.error') });
         }
     }
 
@@ -97,7 +97,7 @@ export default class UpdateCommand extends BaseCommand {
      * Affiche un menu déroulant pour choisir le personnage à mettre à jour
      *
      * @param interaction - L'interaction Discord
-     * @param t - Traductions dans la langue de l'utilisateur
+     * @param translate - Traductions dans la langue de l'utilisateur
      * @param characters - Personnages enregistrés de l'utilisateur
      *
      * @remarks
@@ -105,14 +105,14 @@ export default class UpdateCommand extends BaseCommand {
      */
     private async showCharacterSelection(
         interaction: ChatInputCommandInteraction,
-        t: TracerTranslator,
+        translate: TracerTranslator,
         characters: TracerUser[]
     ): Promise<void> {
         const views = characters.map(fromTracerUser);
 
         const response = await interaction.editReply({
-            embeds: [buildCharacterSelectionEmbed(t, views)],
-            components: [buildCharacterSelectMenu(t, views)],
+            embeds: [buildCharacterSelectionEmbed(translate, views)],
+            components: [buildCharacterSelectMenu(translate, views)],
         });
 
         const collector = response.createMessageComponentCollector({
@@ -124,11 +124,11 @@ export default class UpdateCommand extends BaseCommand {
         collector.on('collect', async (selectInteraction) => {
             try {
                 if (selectInteraction.user.id !== interaction.user.id) {
-                    const clickerT = tracerI18n.for(
+                    const translateForClicker = tracerTranslations.forLocale(
                         await ServiceContainer.getInstance().locale.resolveForInteraction(selectInteraction)
                     );
                     await selectInteraction.reply({
-                        content: clickerT('common.menu.notForYou'),
+                        content: translateForClicker('common.menu.notForYou'),
                         flags: MessageFlagsBitField.Flags.Ephemeral,
                     });
                     return;
@@ -141,7 +141,7 @@ export default class UpdateCommand extends BaseCommand {
 
                 if (!selectedCharacter) {
                     await selectInteraction.update({
-                        content: t('update.selectedCharacterNotFound'),
+                        content: translate('update.selectedCharacterNotFound'),
                         embeds: [],
                         components: [],
                     });
@@ -149,16 +149,16 @@ export default class UpdateCommand extends BaseCommand {
                 }
 
                 await selectInteraction.deferUpdate();
-                await this.updateCharacter(interaction, t, selectedCharacter);
+                await this.updateCharacter(interaction, translate, selectedCharacter);
             } catch (error) {
                 this.logger.error('Erreur lors de la sélection du personnage', 'tracer', error);
-                await this.safeEditReply(interaction, t('update.error'));
+                await this.safeEditReply(interaction, translate('update.error'));
             }
         });
 
         collector.on('end', async (_collected, reason) => {
             if (reason === 'time') {
-                await this.safeEditReply(interaction, t('common.menu.timeout'));
+                await this.safeEditReply(interaction, translate('common.menu.timeout'));
             }
         });
     }
@@ -170,10 +170,10 @@ export default class UpdateCommand extends BaseCommand {
      */
     private async updateCharacter(
         interaction: ChatInputCommandInteraction,
-        t: TracerTranslator,
+        translate: TracerTranslator,
         character: TracerUser
     ): Promise<void> {
-        await this.updateHandler.updateAndReply(interaction, t, character);
+        await this.updateHandler.updateAndReply(interaction, translate, character);
     }
 
     /**

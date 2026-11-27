@@ -32,9 +32,9 @@ export interface ConsoleCommandsOptions {
 export function startConsoleCommands(options: ConsoleCommandsOptions): () => void {
     const { onShutdown, logger, input = process.stdin } = options;
 
-    const rl = readline.createInterface({ input, terminal: false });
+    const terminalReader = readline.createInterface({ input, terminal: false });
 
-    rl.on('line', (line) => {
+    terminalReader.on('line', (line) => {
         const command = line.trim().toLowerCase();
         if (!command) return;
 
@@ -56,5 +56,5 @@ export function startConsoleCommands(options: ConsoleCommandsOptions): () => voi
 
     logger.info('Commandes console actives : tapez "exit" pour un arrêt propre, "help" pour l\'aide', 'console');
 
-    return () => rl.close();
+    return () => terminalReader.close();
 }
