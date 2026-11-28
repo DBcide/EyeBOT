@@ -22,6 +22,15 @@ npm run clean          # Clean dist/ directory (Windows-specific)
 npm run register       # Register slash commands with Discord API
 ```
 
+### Code generators (dev only, see "Code generators" below)
+```bash
+npm run create                  # Interactive: choose feature / embed / component / command
+npm run create:feature          # Same, one generator (also create:embed, create:component, create:command)
+npm run -s create -- --spec -   # Non-interactive: JSON spec (object or array) on stdin — preferred for AI
+npm run -s create -- --help embed   # Spec format of a generator (--example: full example spec)
+npm run typecheck:tools         # Type check tools/ (also run by CI)
+```
+
 ### Tests
 ```bash
 npm test                   # Run all tests
@@ -114,6 +123,54 @@ each feature's `locales/`, run `npm run build` (fix reported missing keys) then 
 - Select menus follow the same pattern in `components/`.
 - Colors come from `shared/embeds/EmbedColors.ts`; helpers (`truncateField`, `discordDate`) from `shared/embeds/EmbedUtils.ts`.
 - discord.js `EmbedBuilder` is used to build; `Embed` is the read-only class of received embeds — do not subclass either.
+- New embeds / components are scaffolded with the generators (see "Code generators").
+
+### Code generators (tools/generators/) — use them instead of writing boilerplate
+
+**For Claude / any AI agent: to create a feature, an embed, a component (buttons / select menu) or a slash
+command, ALWAYS use the generator with a JSON spec instead of writing the files by hand.** One call writes the
+builder, the texts in every `locales/*.json` (emojis escaped, same shape in every language), the exports, the
+types, the `<Feature>Translator` type and a Jest test — then only the business logic remains to be written by hand
+(dynamic parts, commands' `execute()`).
+
+```bash
+npm run -s create -- --help component           # spec format (read it instead of the generator sources)
+npm run -s create -- --spec - --dry-run <<'JSON' # validate + list files, writes nothing
+[{ "type": "feature", "name": "encyclopedia" },
+ { "type": "embed", "feature": "encyclopedia", "file": "Item", "name": "ItemDetails", "summary": "…", "title": "{name}" }]
+JSON
+npm run -s create -- --spec - <<'JSON'           # same spec, writes the files (add --json for a JSON result)
+…
+JSON
+npm test                                         # records the new snapshots (CI never writes snapshots)
+```
+
+- Spec = one object (`type`: feature | embed | component | command) or an array (batch, processed in order: a feature
+  created in `[0]` is visible to `[1]`). All errors are returned at once with their path (`[1].title.en : …`),
+  exit code 1, nothing written. Unknown properties are errors (typos).
+- Texts: `"fr text"`, `["line 1", "line 2"]` or `{ "fr": …, "en": …, "es": … }`. Missing languages get the French
+  text and are listed as "to translate" (texts without letters such as `"{price}"` are not). `{placeholder}` →
+  typed property of `data` (`"placeholders": { "count": "number" }`, default string).
+- Every result is built with the real discord.js builders in every language before writing (Discord limits).
+- A feature that does not exist is created with its full architecture; `.gitkeep` files are removed as soon as a
+  folder receives a real file.
+- Outputs: **feature** → `commands/ components/ embeds/ events/ handlers/ models/ services/ utils/` (.gitkeep),
+  `locales/*.json` (`{}`), `translations.ts`. **embed** → `embeds/<File>Embeds.ts`, `embeds/types.ts` (`<Name>EmbedData`),
+  `embeds/index.ts`, new `EmbedColors` entry. **component** → `components/<File>.ts` (default `SelectMenus` / `Buttons`)
+  with exported custom IDs (`<NAME>_SELECT_ID`, `<NAME>_BUTTON_IDS`) to filter collectors; select options fixed or
+  `"options": "dynamic"` (`data.options`, 25 max). **command** → `commands/<Name>Command.ts` (texts under
+  `commands.<name>.*` + Discord localizations, required options first, `permission`, `guildOnly`, `ephemeral`,
+  default `<name>.reply`). Each one also gets its test in `tests/features/<feature>/…`.
+
+Internals (`tools/`, versioned but **never deployed**):
+- `tsc` only compiles `src/` (`rootDir`); `release.yml` runs `git sparse-checkout set --no-cone '/*' '!/tools/' '!/tests/tools/'`
+  on the server, so git never writes them there. Never import `tools/` from `src/`. Tests live in `tests/tools/`.
+- Node built-ins + devDependencies only (no lock file regeneration). `tools/tsconfig.json` extends the root config;
+  scripts run `ts-node -T` (fast), types are checked by `npm run typecheck:tools` (CI).
+- `tools/generators/index.ts` (CLI: interactive or `--spec`), one folder per generator implementing
+  `shared/generator.ts` (`interactive`, `fromInput`, `preview`, `plan`), and `shared/`: `FileChangeSet` (planned
+  writes, keeps each file's CRLF/LF, `.gitkeep` cleanup), `text` (translated texts, locale writes), `input` (JSON
+  spec reader), `Prompter` (terminal questions, works with piped stdin), `localeJson`, `sourceEdit`.
 
 ### Service Layer (src/shared/services/)
 
@@ -197,6 +254,8 @@ MAX_MEMORY_MB=1024                    # Max memory limit in MB (default: 1024, m
 ## Key Patterns
 
 ### Creating a New Command
+
+Prefer `npm run -s create -- --spec -` with a `"type": "command"` spec (see "Code generators"); by hand:
 
 1. Create file in `src/features/<feature>/commands/<CommandName>Command.ts`
 2. Export default class extending BaseCommand
@@ -317,6 +376,7 @@ tests/
 │   ├── embeds/              # EmbedUtils
 │   ├── i18n/                # TranslationCatalog, locales, common catalog
 │   └── services/            # DatabaseService, DatabaseLoggingService, LocaleService, LoggerService
+├── tools/generators/        # Dev CLIs (not deployed): feature / embed / component / command, wizards + JSON specs
 └── setup.ts                 # Global setup: no DB lookup for the user language (defaults to fr)
 ```
 
@@ -359,8 +419,8 @@ The project includes Windows-specific commands (e.g., `npm run clean` uses `rmdi
 
 ### Workflows (.github/workflows/)
 
-- **ci.yml** — Triggered on every push/PR to `main` and `develop`. Runs on GitHub-hosted `ubuntu-latest`. Steps: `npm install` + `npm run build` + `npm run test:coverage` + SonarCloud scan. Must pass before merging. Uses `npm install` instead of `npm ci` due to cross-platform lock file incompatibilities (Windows dev machine → Linux CI). Uses `fetch-depth: 0` on checkout so SonarCloud has full git history for SCM blame.
-- **release.yml** — Triggered manually via `workflow_dispatch`. Runs on the **self-hosted runner** (OVH VPS). Steps: create git tag → create GitHub Release → `git fetch + git reset --hard origin/main` → `npm ci --ignore-scripts` → `npm run build` → `npm prune --omit=dev` → `pm2 restart eyebot`.
+- **ci.yml** — Triggered on every push/PR to `main` and `develop`. Runs on GitHub-hosted `ubuntu-latest`. Steps: `npm install` + `npm run build` + `npm run typecheck:tools` + `npm run test:coverage` + SonarCloud scan. Must pass before merging. Uses `npm install` instead of `npm ci` due to cross-platform lock file incompatibilities (Windows dev machine → Linux CI). Uses `fetch-depth: 0` on checkout so SonarCloud has full git history for SCM blame.
+- **release.yml** — Triggered manually via `workflow_dispatch`. Runs on the **self-hosted runner** (OVH VPS). Steps: create git tag → create GitHub Release → `git sparse-checkout` (excludes `tools/`, `tests/tools/`) → `git fetch + git reset --hard origin/main` → `npm ci --ignore-scripts` → `npm run build` → `npm prune --omit=dev` → `pm2 restart eyebot`.
 
 ### Security: pin GitHub Actions to full commit SHA
 Never use mutable tags (`@v4`, `@v2`) for GitHub Actions dependencies — the tag can be moved to malicious code. Always pin to the full commit SHA with the version as a comment:

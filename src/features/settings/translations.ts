@@ -1,6 +1,6 @@
 import fr from './locales/fr.json';
 import en from './locales/en.json';
-import es from './locales/en.json';
+import es from './locales/es.json';
 import { Locale, createFeatureTranslations } from '../../shared/i18n';
 
 /** Forme du catalogue settings, déduite du fichier de la langue de référence (fr) */

@@ -232,6 +232,48 @@ Command **names** are the same in every language; their **descriptions** are sho
 | `npm test` | Run all tests |
 | `npm run test:coverage` | Run tests with LCOV coverage report (used by SonarCloud) |
 | `npm run download:assets` | Download Albion weapon images into `assets/` (interactive) |
+| `npm run create` | Code generators (dev only, see below): feature, embed, component, command |
+| `npm run create:<type>` | One generator directly (`create:feature`, `create:embed`, `create:component`, `create:command`) |
+| `npm run typecheck:tools` | Type check the dev tools in `tools/` |
+
+### Code generators (dev only)
+
+`npm run create` scaffolds code following the project structure, for humans (questions in the terminal) and for
+scripts / AI agents (JSON spec, no questions):
+
+| Generator | Creates |
+|-----------|---------|
+| `create:feature` | Feature folders (kept with `.gitkeep`), empty locale files, `translations.ts` |
+| `create:embed` | Embed builder, data type, exports, texts, optional new `EmbedColors` entry, test |
+| `create:component` | Buttons or select menu (string / user / role / channel / mentionable), exported custom IDs, texts, test |
+| `create:command` | Slash command (translated description / options / choices, permissions, default reply), test |
+
+Non-interactive mode — validates everything (Discord limits included) and writes nothing if anything is wrong:
+
+```bash
+npm run -s create -- --help embed                 # spec format
+npm run -s create -- --example                    # example spec of every generator
+npm run -s create -- --spec specs.json --dry-run  # validate and list files (or --spec - to read stdin)
+npm run -s create -- --spec specs.json            # write (add --json for a machine-readable result)
+```
+
+A spec file holds one object or an array (batch: e.g. a feature, then its embeds, components and command).
+
+**Embed generator, interactive mode** — the terminal asks, step by step:
+
+1. **Location** — feature (existing or new), embed file (`<Name>Embeds.ts`, existing or new), embed name, translation key prefix
+2. **Elements** — for each one, whether the embed has it and how it is customised: border color (shared `EmbedColors`
+   palette or a new color added to it), author (+ icon, link), title (+ link), description, thumbnail, fields
+   (name / value / inline), image, footer (+ icon), timestamp. URLs are either fixed or provided by the logic (`data`)
+3. **Texts** — typed in French, then optionally in every other language (otherwise copied and listed as "to translate");
+   `{placeholder}` values become typed properties of `data`; emojis are escaped automatically
+4. **Preview** — rendered in the terminal and validated by discord.js (Discord limits) in every language
+
+It then creates / updates the locale files, the builder, `types.ts`, `index.ts`, `translations.ts`, `EmbedColors.ts`
+and a Jest test, and prints a usage example. Run `npm test` locally afterwards to record the snapshot.
+
+The `tools/` folder is versioned but never deployed: it is not compiled into `dist/`, and the release workflow
+excludes it from the production checkout (`git sparse-checkout`).
 
 ---
 
