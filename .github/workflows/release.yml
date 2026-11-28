@@ -44,6 +44,9 @@ jobs:
       - name: Pull latest code
         working-directory: /home/debian/eyebot
         run: |
+          # Outils de développement (générateurs CLI) : versionnés mais jamais déployés.
+          # Le sparse-checkout empêche git de les écrire sur le disque (idempotent).
+          git sparse-checkout set --no-cone '/*' '!/tools/' '!/tests/tools/'
           git fetch origin main
           git reset --hard origin/main
 
